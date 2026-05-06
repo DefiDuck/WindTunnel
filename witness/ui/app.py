@@ -4,19 +4,22 @@ Launch with: ``witness ui`` (preferred) or ``streamlit run witness/ui/app.py``.
 
 Pages
 -----
-- Load Traces        Add traces from disk; switch the active baseline.
-- Inspect            Decisions, messages, and raw JSON for one trace.
-- Diff               Behavioral diff between any two loaded traces.
+- Load traces        Upload (drag-and-drop) or load by path; manage active set.
+- Inspect            Decisions, messages, raw JSON. Click any decision to drill in.
+- Diff               Behavioral diff between any two loaded traces; export as md.
 - Perturb & Replay   Apply a perturbation to a baseline and re-run live.
-- Fingerprint        Run N perturbations and chart stability per decision type.
+- Fingerprint        Run N perturbations with progress; chart stability per type.
+
+This module owns **structural HTML, widgets, and behavior**. ClaudeDesign owns
+the CSS theme and visual treatment. Class names below (`empty-state`, etc.) are
+intentional hooks for the design layer to restyle without touching logic.
 """
 from __future__ import annotations
 
 import importlib
 import json
-import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import pandas as pd
 import streamlit as st
@@ -35,6 +38,22 @@ from witness.perturbations import (
     Truncate,
     list_perturbations,
 )
+from witness.ui.components import (
+    StatusPanel,
+    confirm_button,
+    decision_list,
+    empty_state,
+    filter_rows,
+    markdown_download,
+    search_input,
+)
+from witness.ui.export import (
+    diff_to_markdown,
+    fingerprint_to_markdown,
+    preset_from_json,
+    preset_to_json,
+    trace_to_markdown,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -50,6 +69,7 @@ st.set_page_config(
 
 # Custom CSS for a more polished look. Keeps Streamlit's theme but tightens
 # spacing and adds chip-style badges.
+# OWNED BY ClaudeDesign — visual treatment of the components below.
 st.markdown(
     """
     <style>
@@ -81,6 +101,16 @@ st.markdown(
     .stat-delta-down  { color: #b30000; }
     .stat-delta-zero  { color: #586069; }
     .small-mono { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; color: #586069; }
+    .empty-state {
+        text-align: center;
+        padding: 56px 24px;
+        background: #fafbfc;
+        border: 1px dashed #d1d5db;
+        border-radius: 12px;
+        margin: 24px 0;
+    }
+    .empty-state-title { font-size: 17px; font-weight: 600; color: #111827; margin-bottom: 6px; }
+    .empty-state-desc  { font-size: 14px; color: #6b7280; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -98,14 +128,37 @@ def _ss() -> dict[str, Any]:
         st.session_state.loaded_traces = {}  # label -> Trace
     if "active_label" not in st.session_state:
         st.session_state.active_label = None
+    if "fp_specs" not in st.session_state:
+        st.session_state.fp_specs = [
+            ("truncate", {"fraction": 0.25}),
+            ("truncate", {"fraction": 0.5}),
+            ("truncate", {"fraction": 0.75}),
+            ("prompt_injection", {}),
+        ]
     return st.session_state
 
 
-def _add_trace(label: str, trace: Trace) -> None:
+def _add_trace(label: str, trace: Trace) -> str:
+    """Add a trace under `label`, deduplicating by appending -2, -3, ... as needed.
+    Returns the actual label used.
+    """
     s = _ss()
-    s.loaded_traces[label] = trace
+    final_label = label
+    n = 2
+    while final_label in s.loaded_traces:
+        final_label = f"{label}-{n}"
+        n += 1
+    s.loaded_traces[final_label] = trace
     if s.active_label is None:
-        s.active_label = label
+        s.active_label = final_label
+    return final_label
+
+
+def _remove_trace(label: str) -> None:
+    s = _ss()
+    s.loaded_traces.pop(label, None)
+    if s.active_label == label:
+        s.active_label = next(iter(s.loaded_traces), None)
 
 
 def _trace_options() -> list[str]:
@@ -163,9 +216,7 @@ KIND_LABEL = {
 def _stat_card(label: str, value: str, delta: Optional[str] = None, delta_kind: str = "zero") -> str:
     delta_html = ""
     if delta is not None:
-        delta_html = (
-            f'<div class="stat-delta-{delta_kind} small-mono">{delta}</div>'
-        )
+        delta_html = f'<div class="stat-delta-{delta_kind} small-mono">{delta}</div>'
     return (
         f'<div class="stat-card">'
         f'<div class="stat-label">{label}</div>'
@@ -197,7 +248,7 @@ def _trace_meta_card(t: Trace) -> None:
     cols = st.columns(4)
     cols[0].markdown(_stat_card("decisions", str(len(t.decisions))), unsafe_allow_html=True)
     cols[1].markdown(_stat_card("messages", str(len(t.messages))), unsafe_allow_html=True)
-    cols[2].markdown(_stat_card("model", str(t.model or "-")), unsafe_allow_html=True)
+    cols[2].markdown(_stat_card("model", str(t.model or "—")), unsafe_allow_html=True)
     cols[3].markdown(
         _stat_card("wall time", f"{t.wall_time_ms or 0} ms"), unsafe_allow_html=True
     )
@@ -235,9 +286,7 @@ def _messages_dataframe(t: Trace) -> pd.DataFrame:
     rows = []
     for i, m in enumerate(t.messages):
         content = (
-            m.content
-            if isinstance(m.content, str)
-            else json.dumps(m.content, default=str)
+            m.content if isinstance(m.content, str) else json.dumps(m.content, default=str)
         )
         rows.append({"#": i, "role": m.role.value, "content": content})
     return pd.DataFrame(rows)
@@ -250,88 +299,131 @@ def _messages_dataframe(t: Trace) -> pd.DataFrame:
 
 def page_load() -> None:
     st.header("Load traces")
-    st.markdown(
-        "Add trace JSON files from disk. They become available in every other page."
+    st.caption(
+        "Drop trace JSON files here, paste a path, or load one of the auto-discovered "
+        "files in this directory."
     )
 
-    # Path entry
-    col_path, col_label = st.columns([3, 1])
-    path_input = col_path.text_input(
-        "path to trace JSON",
-        placeholder="e.g. baseline.json or traces/run_xxx.trace.json",
+    # ---- A1. Drag-and-drop upload ------------------------------------------------
+    uploaded = st.file_uploader(
+        "drop trace JSON files",
+        type=["json"],
+        accept_multiple_files=True,
+        key="uploader",
+        label_visibility="collapsed",
     )
-    label_override = col_label.text_input("label (optional)")
-    if st.button("Load", type="primary") and path_input:
-        try:
-            t = load_trace(path_input)
-        except Exception as e:
-            st.error(f"failed to load: {e}")
-        else:
-            label = label_override or Path(path_input).stem
-            _add_trace(label, t)
-            st.success(f"loaded `{label}` ({len(t.decisions)} decisions)")
-            st.rerun()
-
-    # Auto-discover JSON files in cwd that look like traces
-    st.markdown("---")
-    st.subheader("Discovered traces in this directory")
-    candidates = []
-    for p in Path(".").glob("*.json"):
-        try:
-            data = json.loads(p.read_text(encoding="utf-8"))
-            if isinstance(data, dict) and "decisions" in data and "agent_name" in data:
-                candidates.append(p)
-        except Exception:
-            continue
-    for p in sorted(Path("traces").glob("*.trace.json")) if Path("traces").exists() else []:
-        candidates.append(p)
-    for p in sorted(set(candidates)):
-        col1, col2, col3 = st.columns([4, 2, 1])
-        col1.code(str(p), language="text")
-        try:
-            data = json.loads(p.read_text(encoding="utf-8"))
-            col2.markdown(
-                f"<span class='small-mono'>"
-                f"{data.get('agent_name', '?')} &middot; {len(data.get('decisions', []))} decisions"
-                f"</span>",
-                unsafe_allow_html=True,
-            )
-        except Exception:
-            col2.write("(unreadable)")
-        if col3.button("Load", key=f"load_{p}"):
+    if uploaded:
+        for f in uploaded:
             try:
-                t = load_trace(p)
-                _add_trace(p.stem, t)
-                st.rerun()
+                text = f.read().decode("utf-8")
+                t = Trace.model_validate_json(text)
             except Exception as e:
-                st.error(f"{e}")
+                st.error(f"failed to parse `{f.name}`: {e}")
+                continue
+            label = Path(f.name).stem
+            actual = _add_trace(label, t)
+            st.toast(f"loaded {actual} ({len(t.decisions)} decisions)")
+        # Clear the uploader so a re-render doesn't reload the same files.
+        st.session_state["uploader"] = None
+        st.rerun()
 
+    # ---- Path input (secondary, behind expander) --------------------------------
+    with st.expander("Load by path", expanded=False):
+        col_path, col_label = st.columns([3, 1])
+        path_input = col_path.text_input(
+            "path to trace JSON",
+            placeholder="e.g. baseline.json or traces/run_xxx.trace.json",
+            key="path_input",
+        )
+        label_override = col_label.text_input("label (optional)", key="label_override")
+        if st.button("Load by path", key="load_by_path") and path_input:
+            try:
+                t = load_trace(path_input)
+            except Exception as e:
+                st.error(f"failed to load: {e}")
+            else:
+                actual = _add_trace(label_override or Path(path_input).stem, t)
+                st.toast(f"loaded {actual} ({len(t.decisions)} decisions)")
+                st.rerun()
+
+    st.divider()
+
+    # ---- Auto-discovery ---------------------------------------------------------
+    st.subheader("Discovered in this directory")
+    candidates = _discover_trace_files()
+    if not candidates:
+        empty_state(
+            title="No trace files found here",
+            description="Place trace JSON files in this directory or drop them above.",
+            key_prefix="empty_load",
+        )
+    else:
+        for p in candidates:
+            cols = st.columns([4, 3, 1])
+            cols[0].code(str(p), language="text")
+            try:
+                data = json.loads(p.read_text(encoding="utf-8"))
+                cols[1].markdown(
+                    f"<span class='small-mono'>"
+                    f"{data.get('agent_name', '?')} · {len(data.get('decisions', []))} decisions"
+                    f"</span>",
+                    unsafe_allow_html=True,
+                )
+            except Exception:
+                cols[1].caption("(unreadable)")
+            if cols[2].button("Load", key=f"load_{p}"):
+                try:
+                    t = load_trace(p)
+                    actual = _add_trace(p.stem, t)
+                    st.toast(f"loaded {actual}")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"{e}")
+
+    st.divider()
+
+    # ---- Currently loaded -------------------------------------------------------
     if _ss().loaded_traces:
-        st.markdown("---")
         st.subheader("Currently loaded")
-        for label, t in _ss().loaded_traces.items():
-            cols = st.columns([3, 2, 2, 1])
+        q = search_input(key="loaded_search", placeholder="filter loaded traces")
+        for label, t in list(_ss().loaded_traces.items()):
+            if q and q not in label.lower() and q not in t.agent_name.lower():
+                continue
+            cols = st.columns([3, 2, 2, 2])
             cols[0].markdown(f"**{label}**")
             cols[1].markdown(
-                f"<span class='small-mono'>{t.agent_name} &middot; {t.run_id}</span>",
+                f"<span class='small-mono'>{t.agent_name} · {t.run_id}</span>",
                 unsafe_allow_html=True,
             )
             cols[2].markdown(
-                f"<span class='small-mono'>{len(t.decisions)} decisions, {t.wall_time_ms or 0} ms</span>",
+                f"<span class='small-mono'>{len(t.decisions)} decisions, "
+                f"{t.wall_time_ms or 0} ms</span>",
                 unsafe_allow_html=True,
             )
-            if cols[3].button("Remove", key=f"rm_{label}"):
-                del _ss().loaded_traces[label]
-                if _ss().active_label == label:
-                    _ss().active_label = next(iter(_ss().loaded_traces), None)
-                st.rerun()
+            with cols[3]:
+                # ---- A7. Confirm before destructive action --------
+                confirm_button(
+                    label="Remove",
+                    confirm_label="Confirm",
+                    key=f"remove_{label}",
+                    on_confirm=lambda lab=label: (
+                        _remove_trace(lab),
+                        st.toast(f"removed {lab}"),
+                    ),
+                )
 
 
 def page_inspect() -> None:
     st.header("Inspect")
     options = _trace_options()
     if not options:
-        st.info("Load a trace on the **Load traces** page first.")
+        empty_state(
+            title="No traces loaded",
+            description="Add traces on the Load traces page to begin inspecting.",
+            cta_label="Open Load traces",
+            cta_target_page="Load traces",
+            key_prefix="empty_inspect",
+        )
         return
 
     label = st.selectbox(
@@ -344,13 +436,51 @@ def page_inspect() -> None:
     assert t is not None
 
     _trace_meta_card(t)
-    st.markdown("---")
+
+    # Markdown export of the trace summary
+    col_dl, _ = st.columns([1, 4])
+    with col_dl:
+        st.download_button(
+            "Export summary (.md)",
+            data=trace_to_markdown(t, title=f"Witness trace — {label}"),
+            file_name=f"{label}.md",
+            mime="text/markdown",
+            key=f"dl_trace_{label}",
+        )
+
+    st.divider()
 
     tabs = st.tabs(["decisions", "messages", "raw JSON"])
     with tabs[0]:
-        st.dataframe(_decisions_dataframe(t), use_container_width=True, hide_index=True)
+        col_q, col_view = st.columns([4, 1])
+        with col_q:
+            q = search_input(key=f"dec_search_{label}", placeholder="search decisions")
+        with col_view:
+            view_table = st.toggle("table view", value=False, key=f"dec_table_{label}")
+        if view_table:
+            df = _decisions_dataframe(t)
+            if q:
+                mask = df.apply(
+                    lambda row: row.astype(str).str.lower().str.contains(q, regex=False).any(),
+                    axis=1,
+                )
+                df = df[mask]
+            if df.empty:
+                st.caption("(no decisions match)")
+            else:
+                st.dataframe(df, use_container_width=True, hide_index=True)
+        else:
+            shown = decision_list(t.decisions, query=q)
+            if shown == 0 and not q:
+                st.caption("(no decisions in this trace)")
     with tabs[1]:
-        st.dataframe(_messages_dataframe(t), use_container_width=True, hide_index=True)
+        q = search_input(key=f"msg_search_{label}", placeholder="search messages")
+        rows = _messages_dataframe(t).to_dict("records")
+        rows = filter_rows(rows, q)
+        if rows:
+            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+        else:
+            st.caption("(no messages match)")
     with tabs[2]:
         st.json(t.model_dump(), expanded=False)
 
@@ -359,7 +489,13 @@ def page_diff() -> None:
     st.header("Diff")
     options = _trace_options()
     if len(options) < 2:
-        st.info("Load at least two traces on the **Load traces** page first.")
+        empty_state(
+            title="Need at least two traces to diff",
+            description="Load two trace JSON files (a baseline and a perturbed run).",
+            cta_label="Open Load traces",
+            cta_target_page="Load traces",
+            key_prefix="empty_diff",
+        )
         return
 
     col_a, col_b = st.columns(2)
@@ -374,14 +510,32 @@ def page_diff() -> None:
     a = _get(label_a)
     b = _get(label_b)
     assert a is not None and b is not None
-    _render_diff(diff_traces(a, b))
+    d = diff_traces(a, b)
+    _render_diff(d)
+
+    st.divider()
+    # ---- A8. Markdown export -----------
+    st.subheader("Export")
+    md = diff_to_markdown(d, title=f"Witness diff — {label_a} → {label_b}")
+    markdown_download(
+        md,
+        filename=f"diff_{label_a}_vs_{label_b}.md",
+        label="Download diff as markdown",
+        key=f"dl_diff_{label_a}_{label_b}",
+    )
 
 
 def page_perturb() -> None:
     st.header("Perturb & Replay")
     options = _trace_options()
     if not options:
-        st.info("Load a trace on the **Load traces** page first.")
+        empty_state(
+            title="No traces loaded",
+            description="Load a baseline trace to perturb and replay.",
+            cta_label="Open Load traces",
+            cta_target_page="Load traces",
+            key_prefix="empty_perturb",
+        )
         return
 
     label = st.selectbox(
@@ -408,37 +562,58 @@ def page_perturb() -> None:
         )
         return
 
-    # Perturbation picker
     ptype = st.selectbox("perturbation", list_perturbations())
     perturbation = _build_perturbation(ptype)
     if perturbation is None:
         return
 
     if st.button("Run replay", type="primary"):
-        with st.spinner("running perturbed agent..."):
+        # ---- A2. Live progress + status panel -------------------
+        with StatusPanel(f"Running {ptype}…", expanded=True) as status:
+            status.write(f"baseline: `{label}` ({len(base.decisions)} decisions)")
+            status.write(f"perturbation: `{ptype}` — {perturbation.record().summary}")
             try:
                 perturbed = replay(base, perturbation, agent_fn=fn)
             except Exception as e:
-                st.error(f"replay failed: {e}")
+                status.error(f"replay failed: {e}")
+                st.exception(e)
                 return
+            status.write(
+                f"perturbed run: `{perturbed.run_id}` "
+                f"({len(perturbed.decisions)} decisions, "
+                f"{perturbed.wall_time_ms or 0} ms)"
+            )
+            status.complete(f"complete — {len(perturbed.decisions)} decisions")
 
-        # Stash the perturbed trace as a new loaded one.
-        new_label = f"{label}__{ptype}"
-        _add_trace(new_label, perturbed)
-        st.success(
-            f"loaded perturbed trace as `{new_label}` "
-            f"({len(perturbed.decisions)} decisions, vs baseline {len(base.decisions)})"
+        new_label = _add_trace(f"{label}__{ptype}", perturbed)
+        st.toast(f"loaded perturbed trace as `{new_label}`")
+
+        st.divider()
+        d = diff_traces(base, perturbed)
+        _render_diff(d)
+
+        st.divider()
+        st.subheader("Export")
+        md = diff_to_markdown(d, title=f"Witness diff — {label} vs {ptype}")
+        markdown_download(
+            md,
+            filename=f"diff_{label}_vs_{ptype}.md",
+            label="Download diff as markdown",
+            key=f"dl_replay_{label}_{ptype}",
         )
-        # Show the diff inline
-        st.markdown("---")
-        _render_diff(diff_traces(base, perturbed))
 
 
 def page_fingerprint() -> None:
     st.header("Fingerprint")
     options = _trace_options()
     if not options:
-        st.info("Load a trace on the **Load traces** page first.")
+        empty_state(
+            title="No traces loaded",
+            description="Load a baseline trace to compute a stability fingerprint.",
+            cta_label="Open Load traces",
+            cta_target_page="Load traces",
+            key_prefix="empty_fp",
+        )
         return
 
     label = st.selectbox(
@@ -461,32 +636,51 @@ def page_fingerprint() -> None:
         if fn is None:
             st.warning(f"Could not import `{base.entrypoint}`. Live replay disabled.")
 
+    # ---- Preset save / load (Tier-A bonus, fits naturally) ------------------
+    with st.expander("Preset save / load", expanded=False):
+        col_save, col_load = st.columns(2)
+        with col_save:
+            preset_md = preset_to_json(_ss().fp_specs)
+            st.download_button(
+                "Download preset (.json)",
+                data=preset_md,
+                file_name="witness_fingerprint_preset.json",
+                mime="application/json",
+                key="fp_preset_dl",
+            )
+        with col_load:
+            uploaded = st.file_uploader(
+                "load preset",
+                type=["json"],
+                key="fp_preset_upload",
+                label_visibility="collapsed",
+            )
+            if uploaded:
+                try:
+                    specs = preset_from_json(uploaded.read().decode("utf-8"))
+                    _ss().fp_specs = specs
+                    st.toast(f"loaded preset ({len(specs)} perturbations)")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"invalid preset: {e}")
+
     st.subheader("perturbations to run")
-    if "fp_specs" not in st.session_state:
-        st.session_state.fp_specs = [
-            ("truncate", {"fraction": 0.25}),
-            ("truncate", {"fraction": 0.5}),
-            ("truncate", {"fraction": 0.75}),
-            ("prompt_injection", {}),
-        ]
-    for i, (ptype, params) in enumerate(list(st.session_state.fp_specs)):
+    for i, (ptype, params) in enumerate(list(_ss().fp_specs)):
         cols = st.columns([2, 5, 1])
         cols[0].markdown(f"**{ptype}**")
         cols[1].markdown(
             f"<span class='small-mono'>{params}</span>", unsafe_allow_html=True
         )
         if cols[2].button("Remove", key=f"fp_rm_{i}"):
-            st.session_state.fp_specs.pop(i)
+            _ss().fp_specs.pop(i)
             st.rerun()
     with st.expander("Add another perturbation"):
         ptype = st.selectbox("type", list_perturbations(), key="fp_add_type")
-        params_json = st.text_input(
-            "params (JSON dict)", "{}", key="fp_add_params"
-        )
+        params_json = st.text_input("params (JSON dict)", "{}", key="fp_add_params")
         if st.button("Add", key="fp_add_btn"):
             try:
                 params = json.loads(params_json) if params_json else {}
-                st.session_state.fp_specs.append((ptype, params))
+                _ss().fp_specs.append((ptype, params))
                 st.rerun()
             except json.JSONDecodeError as e:
                 st.error(f"invalid JSON: {e}")
@@ -498,29 +692,53 @@ def page_fingerprint() -> None:
     )
 
     if st.button("Compute fingerprint", type="primary"):
+        # ---- A2. Progress bar + status panel for the loop -----------
+        progress_slot = st.progress(0.0, text="preparing…")
         perturbed_traces: list[Trace] = []
+        total = len(_ss().fp_specs) if fn is not None else 0
         if fn is not None:
-            with st.spinner("running perturbations..."):
-                for ptype, params in st.session_state.fp_specs:
+            with StatusPanel("Running perturbations…", expanded=True) as status:
+                for i, (ptype, params) in enumerate(_ss().fp_specs):
+                    progress_slot.progress(
+                        (i) / max(total, 1),
+                        text=f"running {i + 1}/{total}: {ptype}",
+                    )
                     try:
                         p = _build_perturbation_from(ptype, params)
                         if p is None:
+                            status.write(f"  [{ptype}] skipped (bad params)")
                             continue
+                        status.write(f"  [{ptype}] {p.record().summary}")
                         t = replay(base, p, agent_fn=fn)
                         perturbed_traces.append(t)
+                        status.write(
+                            f"    → {len(t.decisions)} decisions, {t.wall_time_ms or 0} ms"
+                        )
                     except Exception as e:
-                        st.error(f"  [{ptype}] failed: {e}")
+                        status.write(f"  [{ptype}] failed: {e}")
+                progress_slot.progress(1.0, text="done")
+                status.complete(f"complete — {len(perturbed_traces)} run(s)")
         for extra in extra_traces_to_include:
             t = _get(extra)
             if t is not None:
                 perturbed_traces.append(t)
 
         if not perturbed_traces:
-            st.error("no perturbed traces to fingerprint.")
+            st.error("No perturbed traces to fingerprint. Check the run details above.")
             return
 
         fp = build_fingerprint(base, perturbed_traces)
         _render_fingerprint(fp)
+
+        st.divider()
+        st.subheader("Export")
+        md = fingerprint_to_markdown(fp, title=f"Witness fingerprint — {label}")
+        markdown_download(
+            md,
+            filename=f"fingerprint_{label}.md",
+            label="Download fingerprint as markdown",
+            key=f"dl_fp_{label}",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -532,14 +750,13 @@ def _render_diff(d: TraceDiff) -> None:
     base = d.baseline
     pert = d.perturbed
 
-    # Header stats
     cols = st.columns(4)
     delta = len(pert.decisions) - len(base.decisions)
     delta_kind = "down" if delta < 0 else ("up" if delta > 0 else "zero")
     cols[0].markdown(
         _stat_card(
             "decisions",
-            f"{len(base.decisions)} -> {len(pert.decisions)}",
+            f"{len(base.decisions)} → {len(pert.decisions)}",
             f"{delta:+d}" if delta != 0 else "no change",
             delta_kind,
         ),
@@ -548,7 +765,8 @@ def _render_diff(d: TraceDiff) -> None:
     cols[1].markdown(
         _stat_card(
             "tool calls",
-            f"{sum(d.tool_counts_baseline.values())} -> {sum(d.tool_counts_perturbed.values())}",
+            f"{sum(d.tool_counts_baseline.values())} → "
+            f"{sum(d.tool_counts_perturbed.values())}",
         ),
         unsafe_allow_html=True,
     )
@@ -577,14 +795,10 @@ def _render_diff(d: TraceDiff) -> None:
             unsafe_allow_html=True,
         )
 
-    # Decision timeline
     st.subheader("decision timeline")
     rows = []
     for ch in d.alignment.pairs:
-        if ch.kind == "same":
-            d_obj = ch.baseline
-        else:
-            d_obj = ch.baseline or ch.perturbed
+        d_obj = ch.baseline or ch.perturbed
         rows.append(
             {
                 "step": d_obj.step_id[:14] if d_obj else "?",
@@ -592,13 +806,16 @@ def _render_diff(d: TraceDiff) -> None:
                 "decision": _decision_summary(d_obj),
             }
         )
-    df = pd.DataFrame(rows)
-    if df.empty:
-        st.info("(no decisions in either trace)")
+    if not rows:
+        st.caption("(no decisions in either trace)")
     else:
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        q = search_input(key=f"diff_search_{base.run_id}_{pert.run_id}", placeholder="filter")
+        rows = filter_rows(rows, q)
+        if rows:
+            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+        else:
+            st.caption("(no decisions match)")
 
-    # Tool counts
     st.subheader("tool calls")
     all_tools = sorted(set(d.tool_counts_baseline) | set(d.tool_counts_perturbed))
     if all_tools:
@@ -606,14 +823,11 @@ def _render_diff(d: TraceDiff) -> None:
         for t in all_tools:
             b = d.tool_counts_baseline.get(t, 0)
             p = d.tool_counts_perturbed.get(t, 0)
-            rows.append(
-                {"tool": t, "baseline": b, "perturbed": p, "delta": p - b}
-            )
+            rows.append({"tool": t, "baseline": b, "perturbed": p, "delta": p - b})
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
     else:
-        st.info("(no tool calls)")
+        st.caption("(no tool calls)")
 
-    # Final output
     st.subheader("final output")
     if d.final_output_changed:
         col_b, col_p = st.columns(2)
@@ -638,7 +852,6 @@ def _render_fingerprint(fp: Fingerprint) -> None:
         unsafe_allow_html=True,
     )
 
-    # Bar chart of stability per decision type
     st.subheader("stability by decision type")
     scores = fp.stability_by_decision_type()
     if scores:
@@ -649,7 +862,6 @@ def _render_fingerprint(fp: Fingerprint) -> None:
     else:
         st.info("(no decision types observed)")
 
-    # Final output stability
     fout = fp.final_output_stability()
     st.markdown(
         f"**final output stability:** `{fout:.2f}` "
@@ -679,7 +891,6 @@ def _render_fingerprint(fp: Fingerprint) -> None:
 
 
 def _build_perturbation(ptype: str):
-    """Render input controls for the chosen perturbation type and return an instance."""
     if ptype == "truncate":
         col1, col2 = st.columns(2)
         fraction = col1.slider("fraction", 0.05, 0.95, 0.5, 0.05)
@@ -707,7 +918,6 @@ def _build_perturbation(ptype: str):
 
 
 def _build_perturbation_from(ptype: str, params: dict):
-    """Build a perturbation from registry + params (no UI). Used by fingerprint."""
     if ptype not in PERTURBATION_REGISTRY:
         return None
     cls = PERTURBATION_REGISTRY[ptype]
@@ -738,30 +948,56 @@ def _fmt_output(value: Any, *, max_chars: int = 4000) -> str:
     return s
 
 
+def _discover_trace_files() -> list[Path]:
+    out: set[Path] = set()
+    for p in Path(".").glob("*.json"):
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if isinstance(data, dict) and "decisions" in data and "agent_name" in data:
+            out.add(p)
+    if Path("traces").exists():
+        for p in Path("traces").glob("*.trace.json"):
+            out.add(p)
+    return sorted(out)
+
+
 # ---------------------------------------------------------------------------
 # Sidebar / nav
 # ---------------------------------------------------------------------------
 
+PAGES: dict[str, Callable[[], None]] = {
+    "Load traces": page_load,
+    "Inspect": page_inspect,
+    "Diff": page_diff,
+    "Perturb & Replay": page_perturb,
+    "Fingerprint": page_fingerprint,
+}
+
 with st.sidebar:
     st.markdown("# Witness")
     st.markdown(
-        "<span class='small-mono'>"
-        "capture · perturb · diff"
-        "</span>",
+        "<span class='small-mono'>capture · perturb · diff</span>",
         unsafe_allow_html=True,
     )
-    st.markdown(f"<span class='small-mono'>v{witness.__version__}</span>", unsafe_allow_html=True)
-    st.markdown("---")
-    PAGES = {
-        "Load traces": page_load,
-        "Inspect": page_inspect,
-        "Diff": page_diff,
-        "Perturb & Replay": page_perturb,
-        "Fingerprint": page_fingerprint,
-    }
-    page = st.radio("page", list(PAGES.keys()), label_visibility="collapsed")
+    st.markdown(
+        f"<span class='small-mono'>v{witness.__version__}</span>",
+        unsafe_allow_html=True,
+    )
+    st.divider()
 
-    st.markdown("---")
+    pages_list = list(PAGES.keys())
+    # Honor a programmatic nav target (set by empty-state CTAs).
+    default_idx = 0
+    nav_target = st.session_state.pop("nav_target", None)
+    if nav_target in pages_list:
+        default_idx = pages_list.index(nav_target)
+    page = st.radio(
+        "page", pages_list, index=default_idx, label_visibility="collapsed"
+    )
+
+    st.divider()
     n_loaded = len(_ss().loaded_traces)
     st.markdown(
         f"<span class='small-mono'>{n_loaded} trace(s) loaded</span>",
