@@ -558,18 +558,27 @@ def page_load() -> None:
 
 
 def _onboarding_card() -> None:
-    """First-run welcome panel — three clear paths into the app."""
+    """First-run welcome panel — three clear paths into the app.
+
+    Layout: a header section with title + subtitle + "GET STARTED" label,
+    then three side-by-side bordered Streamlit containers (one per path).
+    The containers can't be wrapped in a single outer card because
+    `st.columns()` and `st.container()` can't be nested inside raw HTML.
+    """
+    # ---- Header section (no card wrapper) -----------------------
     st.markdown(
-        '<div style="background: var(--bg-1); border: 1px solid var(--border); '
-        'border-radius: var(--radius-lg); padding: 28px 24px; margin: 8px 0;">'
+        '<div style="margin: 14px 0 4px 0;">'
         '<div style="font-size: 16px; font-weight: 500; color: var(--fg); '
         'margin-bottom: 6px;">Welcome to Witness</div>'
-        '<div class="mono faint" style="font-size: 12px; margin-bottom: 22px;">'
+        '<div class="mono faint" style="font-size: 12px;">'
         "Capture, perturb, and diff your agent's decisions."
         "</div>"
-        '<div class="uppercase-label" style="margin-bottom: 12px;">'
-        "get started — pick one:"
-        "</div>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="uppercase-label" style="margin: 16px 0 8px 0;">'
+        "get started — pick one"
         "</div>",
         unsafe_allow_html=True,
     )
@@ -577,72 +586,72 @@ def _onboarding_card() -> None:
     cols = st.columns(3, gap="medium")
     # 1. Try sample data
     with cols[0]:
-        st.markdown(
-            '<div style="font-size: 12.5px; font-weight: 500; '
-            'color: var(--fg); margin-bottom: 6px;">Try sample data</div>'
-            '<div class="mono faint" style="font-size: 11px; '
-            'margin-bottom: 12px; min-height: 44px;">'
-            "Capture a small mock baseline + truncate perturbation. "
-            "Lets you click through every page in the app immediately."
-            "</div>",
-            unsafe_allow_html=True,
-        )
-        if st.button(
-            "Generate samples",
-            key="onb_sample",
-            type="primary",
-            use_container_width=True,
-        ):
-            try:
-                baseline, perturbed = generate_sample_traces()
-            except Exception as e:
-                st.error(f"failed: {e}")
-            else:
-                _add_trace("baseline", baseline)
-                _add_trace("perturbed", perturbed)
-                st.toast("loaded baseline + perturbed sample traces")
-                st.rerun()
+        with st.container(border=True):
+            st.markdown(
+                '<div style="font-size: 12.5px; font-weight: 500; '
+                'color: var(--fg); margin-bottom: 6px;">Try sample data</div>'
+                '<div class="mono faint" style="font-size: 11px; '
+                'margin-bottom: 14px; min-height: 56px;">'
+                "Capture a small mock baseline + truncate perturbation. "
+                "Lets you click through every page in the app immediately."
+                "</div>",
+                unsafe_allow_html=True,
+            )
+            if st.button(
+                "Generate samples",
+                key="onb_sample",
+                type="primary",
+                use_container_width=True,
+            ):
+                try:
+                    baseline, perturbed = generate_sample_traces()
+                except Exception as e:
+                    st.error(f"failed: {e}")
+                else:
+                    _add_trace("baseline", baseline)
+                    _add_trace("perturbed", perturbed)
+                    st.toast("loaded baseline + perturbed sample traces")
+                    st.rerun()
 
     # 2. Drop a trace
     with cols[1]:
-        st.markdown(
-            '<div style="font-size: 12.5px; font-weight: 500; '
-            'color: var(--fg); margin-bottom: 6px;">Drop a trace</div>'
-            '<div class="mono faint" style="font-size: 11px; '
-            'margin-bottom: 12px; min-height: 44px;">'
-            "Drag any trace JSON file onto the upload zone above, "
-            "or paste a path."
-            "</div>",
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            '<div style="height: 28px; padding: 0 12px; border: 1px solid '
-            "var(--border); border-radius: var(--radius); display: flex; "
-            "align-items: center; justify-content: center; "
-            "color: var(--fg-faint); font-family: var(--mono); "
-            'font-size: 11.5px;">↑ uploader is above</div>',
-            unsafe_allow_html=True,
-        )
+        with st.container(border=True):
+            st.markdown(
+                '<div style="font-size: 12.5px; font-weight: 500; '
+                'color: var(--fg); margin-bottom: 6px;">Drop a trace</div>'
+                '<div class="mono faint" style="font-size: 11px; '
+                'margin-bottom: 14px; min-height: 56px;">'
+                "Drag any trace JSON file onto the upload zone above, "
+                "or paste a path."
+                "</div>"
+                '<div style="height: 28px; padding: 0 12px; border: 1px solid '
+                "var(--border); border-radius: var(--radius); display: flex; "
+                "align-items: center; justify-content: center; "
+                "color: var(--fg-faint); font-family: var(--mono); "
+                'font-size: 11.5px;">↑ uploader is above</div>',
+                unsafe_allow_html=True,
+            )
 
     # 3. Capture from Python
     with cols[2]:
-        st.markdown(
-            '<div style="font-size: 12.5px; font-weight: 500; '
-            'color: var(--fg); margin-bottom: 6px;">Capture from Python</div>'
-            '<div class="mono faint" style="font-size: 11px; '
-            'margin-bottom: 12px; min-height: 44px;">'
-            "Wrap your agent function with @witness.observe, run it once, "
-            "then load the resulting JSON here."
-            "</div>",
-            unsafe_allow_html=True,
-        )
-        st.code(
-            "import witness\n\n"
-            '@witness.observe(name="my_agent")\n'
-            "def my_agent(...): ...\n\n"
-            "my_agent(...)  # writes traces/<run>.json",
-            language="python",
-        )
+        with st.container(border=True):
+            st.markdown(
+                '<div style="font-size: 12.5px; font-weight: 500; '
+                'color: var(--fg); margin-bottom: 6px;">Capture from Python</div>'
+                '<div class="mono faint" style="font-size: 11px; '
+                'margin-bottom: 14px; min-height: 56px;">'
+                "Wrap your agent function with @witness.observe, run it once, "
+                "then load the resulting JSON here."
+                "</div>",
+                unsafe_allow_html=True,
+            )
+            st.code(
+                "import witness\n\n"
+                '@witness.observe(name="my_agent")\n'
+                "def my_agent(...): ...\n\n"
+                "my_agent(...)  # writes traces/<run>.json",
+                language="python",
+            )
 
 
 def _next_action_hint() -> None:
