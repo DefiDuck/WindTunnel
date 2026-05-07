@@ -99,7 +99,27 @@ def _ss() -> dict[str, Any]:
         ]
     if "load_filter_kind" not in st.session_state:
         st.session_state.load_filter_kind = "all"
+    if "ui_mode" not in st.session_state:
+        # Default to simple — friendlier first impression. Power users
+        # toggle to advanced via the sidebar switch.
+        st.session_state.ui_mode = "simple"
     return st.session_state
+
+
+def _is_simple() -> bool:
+    """Return True when the UI is in beginner / simple mode."""
+    return _ss().ui_mode == "simple"
+
+
+def _help(text: str) -> str:
+    """Render a small help caption in mono-faint — used to add explanatory
+    context next to terms like 'perturbation' / 'fingerprint' for new users.
+    Renders only in simple mode (caller should gate the call)."""
+    return (
+        f'<div class="mono faint" style="font-size: 11px; '
+        f'color: var(--fg-faint); margin: 4px 0 10px 0; line-height: 1.55;">'
+        f'{escape(text)}</div>'
+    )
 
 
 def _add_trace(label: str, trace: Trace) -> str:
@@ -1726,6 +1746,38 @@ with st.sidebar:
         "</div>",
         unsafe_allow_html=True,
     )
+
+    # ---- Mode toggle (simple / advanced) -----------------------
+    # Pre-init session state from the radio default so _is_simple() works
+    # everywhere on first run.
+    _ss()  # ensure ui_mode is set
+    st.markdown(
+        '<div class="uppercase-label" style="margin-bottom: 6px;">mode</div>',
+        unsafe_allow_html=True,
+    )
+    mode = st.radio(
+        "mode",
+        ["simple", "advanced"],
+        index=0 if _ss().ui_mode == "simple" else 1,
+        horizontal=True,
+        label_visibility="collapsed",
+        key="mode_toggle",
+    )
+    st.session_state.ui_mode = mode
+
+    if _is_simple():
+        st.markdown(
+            '<div class="mono faint" style="font-size: 10.5px; '
+            'margin: 0 0 12px 0;">guided ui · fewer options · more help text</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            '<div class="mono faint" style="font-size: 10.5px; '
+            'margin: 0 0 12px 0;">all controls visible · power-user mode</div>',
+            unsafe_allow_html=True,
+        )
+
     st.markdown(
         '<div class="uppercase-label" style="margin-bottom: 6px;">screens</div>',
         unsafe_allow_html=True,

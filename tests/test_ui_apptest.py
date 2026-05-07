@@ -27,6 +27,19 @@ def _new_app() -> AppTest:
     return AppTest.from_file(str(APP_PATH), default_timeout=10)
 
 
+def _page_nav(at: AppTest):
+    """Locate the page-nav radio (which has 'Inspect' as an option), tolerant
+    of any number of other radios in the sidebar (mode toggle, etc.)."""
+    for r in at.sidebar.radio:
+        opts = list(getattr(r, "options", []) or [])
+        if "Inspect" in opts:
+            return r
+    raise AssertionError(
+        "page-nav radio not found — options seen: "
+        + ", ".join(repr(list(getattr(r, "options", []))) for r in at.sidebar.radio)
+    )
+
+
 def _page_text(at: AppTest) -> str:
     """Concatenated text content emitted by the running page (markdown,
     captions, info, error, warning). Used so we can assert on page titles
@@ -55,7 +68,7 @@ def test_app_switches_to_inspect_page_with_no_traces() -> None:
     at = _new_app()
     at.run()
     # Find the sidebar radio and select 'Inspect'
-    radio = at.sidebar.radio[0]
+    radio = _page_nav(at)
     radio.set_value("Inspect").run()
     assert not at.exception
     assert "Inspect" in _page_text(at)
@@ -64,7 +77,7 @@ def test_app_switches_to_inspect_page_with_no_traces() -> None:
 def test_app_switches_to_diff_page_with_no_traces() -> None:
     at = _new_app()
     at.run()
-    radio = at.sidebar.radio[0]
+    radio = _page_nav(at)
     radio.set_value("Diff").run()
     assert not at.exception
 
@@ -72,7 +85,7 @@ def test_app_switches_to_diff_page_with_no_traces() -> None:
 def test_app_switches_to_perturb_page_with_no_traces() -> None:
     at = _new_app()
     at.run()
-    radio = at.sidebar.radio[0]
+    radio = _page_nav(at)
     radio.set_value("Perturb & Replay").run()
     assert not at.exception
 
@@ -80,7 +93,7 @@ def test_app_switches_to_perturb_page_with_no_traces() -> None:
 def test_app_switches_to_fingerprint_page_with_no_traces() -> None:
     at = _new_app()
     at.run()
-    radio = at.sidebar.radio[0]
+    radio = _page_nav(at)
     radio.set_value("Fingerprint").run()
     assert not at.exception
 
