@@ -850,20 +850,28 @@ kbd {
 [data-testid="stStatusWidget"] { display: none !important; }
 
 /* ---- Bordered containers (st.container(border=True)) ----------- */
-/* Used to group each Load-page trace row with its action buttons.  */
-/* Streamlit applies an inline border style; override the color to  */
-/* match our --border, and tighten padding so each card is dense.   */
+/* Used to group each Load-page trace row with its action buttons,  */
+/* and to tile the 3 onboarding sub-cards on the welcome panel.     */
 [data-testid="stVerticalBlockBorderWrapper"] {
     border-color: var(--border) !important;
     border-radius: var(--radius) !important;
     background: var(--bg-1);
+    transition: border-color 80ms linear, background 80ms linear;
+}
+[data-testid="stVerticalBlockBorderWrapper"]:hover {
+    border-color: var(--border-2) !important;
 }
 [data-testid="stVerticalBlockBorderWrapper"] > div {
-    padding: 4px 6px !important;
+    padding: 6px 8px !important;
 }
 /* Tighten the inner vertical-block gap inside cards */
 [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlock"] {
-    gap: 4px !important;
+    gap: 6px !important;
+}
+/* Equalize heights of bordered cards living inside st.columns — keeps the
+   3 onboarding sub-cards aligned across the row even when one is taller. */
+[data-testid="stColumn"] [data-testid="stVerticalBlockBorderWrapper"] {
+    height: 100%;
 }
 </style>
 """
