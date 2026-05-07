@@ -200,11 +200,11 @@ header[data-testid="stHeader"] { height: 0 !important; min-height: 0 !important;
 /* Hide tooltip help icon space on labels */
 .stSelectbox label, .stTextInput label, .stTextArea label, .stNumberInput label, .stSlider label, .stRadio label {
     font-family: var(--mono);
-    font-size: 10.5px;
-    color: var(--fg-faint);
+    font-size: 11px;
+    color: var(--fg-dim);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-weight: 400;
+    letter-spacing: 0.06em;
+    font-weight: 500;
 }
 
 /* ---- Slider ------------------------------------------------------- */
@@ -384,10 +384,11 @@ header[data-testid="stHeader"] { height: 0 !important; min-height: 0 !important;
 
 .uppercase-label {
     font-family: var(--mono);
-    font-size: 10.5px;
-    color: var(--fg-faint);
+    font-size: 11px;
+    color: var(--fg-dim);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
+    font-weight: 500;
 }
 
 /* dots */
@@ -428,10 +429,11 @@ header[data-testid="stHeader"] { height: 0 !important; min-height: 0 !important;
 .witness-stat:last-child { border-right: 0; }
 .witness-stat .label {
     font-family: var(--mono);
-    font-size: 10.5px;
-    color: var(--fg-faint);
+    font-size: 11px;
+    color: var(--fg-dim);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
+    font-weight: 500;
     margin-bottom: 6px;
 }
 .witness-stat .value {
@@ -601,10 +603,11 @@ header[data-testid="stHeader"] { height: 0 !important; min-height: 0 !important;
     padding: 8px 16px;
     border-bottom: 1px solid var(--border);
     font-family: var(--mono);
-    font-size: 10.5px;
-    color: var(--fg-faint);
+    font-size: 11px;
+    color: var(--fg-dim);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
+    font-weight: 500;
 }
 .witness-table-header span { white-space: nowrap; }
 .witness-table-row {
@@ -711,10 +714,11 @@ header[data-testid="stHeader"] { height: 0 !important; min-height: 0 !important;
 .witness-headline > div:last-child { border-right: 0; padding-right: 0; margin-right: 0; }
 .witness-headline .label {
     font-family: var(--mono);
-    font-size: 10.5px;
-    color: var(--fg-faint);
+    font-size: 11px;
+    color: var(--fg-dim);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
+    font-weight: 500;
     margin-bottom: 8px;
 }
 .witness-headline .value {
@@ -741,10 +745,11 @@ header[data-testid="stHeader"] { height: 0 !important; min-height: 0 !important;
 .witness-cmp-row:last-child { border-bottom: 0; }
 .witness-cmp-row.head .cell {
     font-family: var(--mono);
-    font-size: 10.5px;
-    color: var(--fg-faint);
+    font-size: 11px;
+    color: var(--fg-dim);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
+    font-weight: 500;
 }
 .witness-cmp-row .cell { font-size: 12px; color: var(--fg); }
 .witness-cmp-row .cell.right { text-align: right; }
