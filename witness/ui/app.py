@@ -47,6 +47,7 @@ from witness.ui.export import (
     preset_to_json,
     trace_to_markdown,
 )
+from witness.ui.onboarding import SAMPLE_DOC, generate_sample_traces
 from witness.ui.theme import THEME_CSS
 
 
@@ -267,6 +268,30 @@ def _trace_kind(t: Trace) -> str:
     return "perturbed" if t.perturbation else "baseline"
 
 
+def _decision_type_chips(t: Trace, *, key: str) -> str:
+    """Render a horizontal radio styled as pills, one per decision type
+    seen in the trace, plus an 'all' default. Returns the selected type
+    (or 'all').
+    """
+    seen: dict[str, int] = {}
+    for d in t.decisions:
+        seen[d.type.value] = seen.get(d.type.value, 0) + 1
+    if not seen:
+        return "all"
+    options = ["all"] + [f"{k} ({v})" for k, v in sorted(seen.items())]
+    choice = st.radio(
+        "type",
+        options,
+        horizontal=True,
+        label_visibility="collapsed",
+        key=key,
+    )
+    if choice == "all":
+        return "all"
+    # strip the count suffix
+    return choice.split(" (")[0]
+
+
 # ---------------------------------------------------------------------------
 # Pages
 # ---------------------------------------------------------------------------
@@ -279,6 +304,10 @@ def page_load() -> None:
         "Load traces",
         f"{n_loaded} loaded · {len(candidates)} files in ./traces and cwd",
     )
+
+    # Contextual hint pointing to the next action — only shown once 1+ traces
+    # are loaded so it doesn't clash with the onboarding card.
+    _next_action_hint()
 
     main, side = st.columns([7, 3], gap="medium")
 
@@ -367,13 +396,9 @@ def page_load() -> None:
                 unsafe_allow_html=True,
             )
 
-        # ---- File-browser table ---------------------------------
+        # ---- File-browser table OR onboarding card --------------
         if not _ss().loaded_traces:
-            _empty_card(
-                title="No traces loaded yet",
-                description="Drop JSON files above, paste a path, or load one from below.",
-                key_prefix="empty_load_main",
-            )
+            _onboarding_card()
         else:
             st.markdown(
                 '<div class="witness-table-header">'
@@ -532,6 +557,138 @@ def page_load() -> None:
                 st.rerun()
 
 
+def _onboarding_card() -> None:
+    """First-run welcome panel — three clear paths into the app."""
+    st.markdown(
+        '<div style="background: var(--bg-1); border: 1px solid var(--border); '
+        'border-radius: var(--radius-lg); padding: 28px 24px; margin: 8px 0;">'
+        '<div style="font-size: 16px; font-weight: 500; color: var(--fg); '
+        'margin-bottom: 6px;">Welcome to Witness</div>'
+        '<div class="mono faint" style="font-size: 12px; margin-bottom: 22px;">'
+        "Capture, perturb, and diff your agent's decisions."
+        "</div>"
+        '<div class="uppercase-label" style="margin-bottom: 12px;">'
+        "get started — pick one:"
+        "</div>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    cols = st.columns(3, gap="medium")
+    # 1. Try sample data
+    with cols[0]:
+        st.markdown(
+            '<div style="font-size: 12.5px; font-weight: 500; '
+            'color: var(--fg); margin-bottom: 6px;">Try sample data</div>'
+            '<div class="mono faint" style="font-size: 11px; '
+            'margin-bottom: 12px; min-height: 44px;">'
+            "Capture a small mock baseline + truncate perturbation. "
+            "Lets you click through every page in the app immediately."
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        if st.button(
+            "Generate samples",
+            key="onb_sample",
+            type="primary",
+            use_container_width=True,
+        ):
+            try:
+                baseline, perturbed = generate_sample_traces()
+            except Exception as e:
+                st.error(f"failed: {e}")
+            else:
+                _add_trace("baseline", baseline)
+                _add_trace("perturbed", perturbed)
+                st.toast("loaded baseline + perturbed sample traces")
+                st.rerun()
+
+    # 2. Drop a trace
+    with cols[1]:
+        st.markdown(
+            '<div style="font-size: 12.5px; font-weight: 500; '
+            'color: var(--fg); margin-bottom: 6px;">Drop a trace</div>'
+            '<div class="mono faint" style="font-size: 11px; '
+            'margin-bottom: 12px; min-height: 44px;">'
+            "Drag any trace JSON file onto the upload zone above, "
+            "or paste a path."
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<div style="height: 28px; padding: 0 12px; border: 1px solid '
+            "var(--border); border-radius: var(--radius); display: flex; "
+            "align-items: center; justify-content: center; "
+            "color: var(--fg-faint); font-family: var(--mono); "
+            'font-size: 11.5px;">↑ uploader is above</div>',
+            unsafe_allow_html=True,
+        )
+
+    # 3. Capture from Python
+    with cols[2]:
+        st.markdown(
+            '<div style="font-size: 12.5px; font-weight: 500; '
+            'color: var(--fg); margin-bottom: 6px;">Capture from Python</div>'
+            '<div class="mono faint" style="font-size: 11px; '
+            'margin-bottom: 12px; min-height: 44px;">'
+            "Wrap your agent function with @witness.observe, run it once, "
+            "then load the resulting JSON here."
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        st.code(
+            "import witness\n\n"
+            '@witness.observe(name="my_agent")\n'
+            "def my_agent(...): ...\n\n"
+            "my_agent(...)  # writes traces/<run>.json",
+            language="python",
+        )
+
+
+def _next_action_hint() -> None:
+    """Contextual hint at the top of the page based on how many traces are
+    loaded — guide the user to the next logical action.
+    """
+    n = len(_ss().loaded_traces)
+    has_perturbed = any(t.perturbation for t in _ss().loaded_traces.values())
+    if n == 0:
+        return
+    if n == 1:
+        msg = "Loaded 1 trace. Next: perturb it to generate a counterfactual."
+        target = "Perturb & Replay"
+        cta = "Open Perturb →"
+    elif n >= 2 and not has_perturbed:
+        msg = (
+            f"Loaded {n} traces. Diff them or perturb a baseline for fresh "
+            "counterfactuals."
+        )
+        target = "Diff"
+        cta = "Open Diff →"
+    elif has_perturbed:
+        msg = (
+            f"Loaded {n} traces (some perturbed). Next: see the diff or "
+            "fingerprint."
+        )
+        target = "Diff"
+        cta = "Open Diff →"
+    else:
+        return
+
+    cols = st.columns([5, 1])
+    with cols[0]:
+        st.markdown(
+            f'<div style="padding: 10px 14px; background: var(--bg-1); '
+            f'border: 1px solid var(--border); border-left: 2px solid var(--accent); '
+            f'border-radius: var(--radius); font-family: var(--mono); '
+            f'font-size: 11.5px; color: var(--fg-dim);">{escape(msg)}</div>',
+            unsafe_allow_html=True,
+        )
+    with cols[1]:
+        if st.button(cta, key=f"hint_{target}", use_container_width=True):
+            st.session_state["nav_target"] = target
+            st.rerun()
+
+
 def _matches_filter(label: str, t: Trace, q: str, kind: str) -> bool:
     if kind == "baseline" and t.perturbation:
         return False
@@ -559,15 +716,37 @@ def page_inspect() -> None:
         )
         return
 
-    label = st.selectbox(
-        "trace",
-        options,
-        index=options.index(_ss().active_label) if _ss().active_label in options else 0,
-        label_visibility="collapsed",
-    )
+    sel_cols = st.columns([4, 1, 1, 1])
+    with sel_cols[0]:
+        label = st.selectbox(
+            "trace",
+            options,
+            index=options.index(_ss().active_label) if _ss().active_label in options else 0,
+            label_visibility="collapsed",
+        )
     _ss().active_label = label
     t = _get(label)
     assert t is not None
+    with sel_cols[1]:
+        if st.button("Diff →", key="ins_diff", use_container_width=True):
+            st.session_state["nav_target"] = "Diff"
+            st.rerun()
+    with sel_cols[2]:
+        if st.button(
+            "Perturb →",
+            key="ins_perturb",
+            use_container_width=True,
+            type="primary",
+        ):
+            st.session_state["nav_target"] = "Perturb & Replay"
+            st.rerun()
+    with sel_cols[3]:
+        if st.button(
+            "Fingerprint →", key="ins_fp", use_container_width=True
+        ):
+            st.session_state["nav_target"] = "Fingerprint"
+            st.rerun()
+
     _topbar(
         label,
         f"{t.agent_name} · {len(t.decisions)} decisions · "
@@ -589,6 +768,15 @@ def page_inspect() -> None:
                 view_table = st.toggle(
                     "table view", value=False, key=f"dec_table_{label}"
                 )
+
+            # Decision-type filter chips — only render types that exist
+            type_filter = _decision_type_chips(t, key=f"dec_type_{label}")
+            if type_filter and type_filter != "all":
+                if q:
+                    q = f"{q} {type_filter}".strip()
+                else:
+                    q = type_filter
+
             if view_table:
                 df = _decisions_dataframe(t)
                 if q:
@@ -803,6 +991,37 @@ def page_diff() -> None:
         label="Download as markdown",
         key=f"dl_diff_{label_a}_{label_b}",
     )
+
+    # ---- Next-action CTAs --------------------------------------
+    st.markdown('<div style="height: 8px;"></div>', unsafe_allow_html=True)
+    next_cols = st.columns(3)
+    with next_cols[0]:
+        if st.button(
+            "Run another perturbation →",
+            key=f"diff_to_perturb_{label_a}_{label_b}",
+            use_container_width=True,
+        ):
+            _ss().active_label = label_a
+            st.session_state["nav_target"] = "Perturb & Replay"
+            st.rerun()
+    with next_cols[1]:
+        if st.button(
+            "Build a fingerprint →",
+            key=f"diff_to_fp_{label_a}_{label_b}",
+            use_container_width=True,
+        ):
+            _ss().active_label = label_a
+            st.session_state["nav_target"] = "Fingerprint"
+            st.rerun()
+    with next_cols[2]:
+        if st.button(
+            "Inspect baseline →",
+            key=f"diff_to_inspect_{label_a}_{label_b}",
+            use_container_width=True,
+        ):
+            _ss().active_label = label_a
+            st.session_state["nav_target"] = "Inspect"
+            st.rerun()
 
 
 def _render_diff_hero(d: TraceDiff) -> None:

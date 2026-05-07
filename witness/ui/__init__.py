@@ -23,6 +23,7 @@ from witness.ui.export import (  # noqa: E402
     preset_to_json,
     trace_to_markdown,
 )
+from witness.ui.onboarding import SAMPLE_DOC, generate_sample_traces  # noqa: E402
 
 __all__ = [
     "APP_PATH",
@@ -31,4 +32,6 @@ __all__ = [
     "trace_to_markdown",
     "preset_to_json",
     "preset_from_json",
+    "generate_sample_traces",
+    "SAMPLE_DOC",
 ]
