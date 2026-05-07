@@ -439,37 +439,41 @@ def page_load() -> None:
                     continue
                 is_active = _ss().active_label == label
                 modified = (t.started_at or "")[:10] or "—"
-                row_html = (
-                    f'<div class="witness-table-row{" selected" if is_active else ""}">'
-                    f'<span class="filename">{escape(label)}</span>'
-                    f'<span class="agent">{escape(t.agent_name)}</span>'
-                    f'<span class="num right">{len(t.decisions)}</span>'
-                    f'<span class="num">{escape(t.model or "—")}</span>'
-                    f'<span class="meta right">—</span>'
-                    f'<span class="meta right">{escape(modified)}</span>'
-                    f'</div>'
-                )
-                st.markdown(row_html, unsafe_allow_html=True)
-                # Inline action buttons (one row per trace, right-aligned)
-                btn_cols = st.columns([6, 1, 1])
-                with btn_cols[1]:
-                    if st.button(
-                        "Set active",
-                        key=f"sa_{label}",
-                        use_container_width=True,
-                    ):
-                        _ss().active_label = label
-                        st.rerun()
-                with btn_cols[2]:
-                    # confirm_label defaults to "Yes" — short enough for narrow columns
-                    confirm_button(
-                        label="Remove",
-                        key=f"remove_{label}",
-                        on_confirm=lambda lab=label: (
-                            _remove_trace(lab),
-                            st.toast(f"removed {lab}"),
-                        ),
+                # Each trace = one bordered card containing the data row +
+                # its action buttons. Visually unambiguous: which buttons
+                # operate on which row.
+                with st.container(border=True):
+                    row_html = (
+                        f'<div class="witness-table-row{" selected" if is_active else ""}" '
+                        f'style="border-bottom: 0;">'
+                        f'<span class="filename">{escape(label)}</span>'
+                        f'<span class="agent">{escape(t.agent_name)}</span>'
+                        f'<span class="num right">{len(t.decisions)}</span>'
+                        f'<span class="num">{escape(t.model or "—")}</span>'
+                        f'<span class="meta right">—</span>'
+                        f'<span class="meta right">{escape(modified)}</span>'
+                        f'</div>'
                     )
+                    st.markdown(row_html, unsafe_allow_html=True)
+                    btn_cols = st.columns([6, 1, 1])
+                    with btn_cols[1]:
+                        if st.button(
+                            "Set active",
+                            key=f"sa_{label}",
+                            use_container_width=True,
+                        ):
+                            _ss().active_label = label
+                            st.rerun()
+                    with btn_cols[2]:
+                        # confirm_label defaults to "Yes" — short for narrow columns
+                        confirm_button(
+                            label="Remove",
+                            key=f"remove_{label}",
+                            on_confirm=lambda lab=label: (
+                                _remove_trace(lab),
+                                st.toast(f"removed {lab}"),
+                            ),
+                        )
 
         # ---- Auto-discovered list -------------------------------
         st.markdown(

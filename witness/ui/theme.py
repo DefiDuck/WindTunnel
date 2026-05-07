@@ -848,6 +848,23 @@ kbd {
 
 /* hide the streamlit "manage app" footer */
 [data-testid="stStatusWidget"] { display: none !important; }
+
+/* ---- Bordered containers (st.container(border=True)) ----------- */
+/* Used to group each Load-page trace row with its action buttons.  */
+/* Streamlit applies an inline border style; override the color to  */
+/* match our --border, and tighten padding so each card is dense.   */
+[data-testid="stVerticalBlockBorderWrapper"] {
+    border-color: var(--border) !important;
+    border-radius: var(--radius) !important;
+    background: var(--bg-1);
+}
+[data-testid="stVerticalBlockBorderWrapper"] > div {
+    padding: 4px 6px !important;
+}
+/* Tighten the inner vertical-block gap inside cards */
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlock"] {
+    gap: 4px !important;
+}
 </style>
 """
 
