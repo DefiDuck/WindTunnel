@@ -99,7 +99,10 @@ def test_app_switches_to_fingerprint_page_with_no_traces() -> None:
 
 
 def test_load_page_with_a_trace_in_session(tmp_path: Path) -> None:
-    """Load a real trace file via path-input expander and verify it shows up."""
+    """Load a real trace file via the path-input loader and verify it shows up.
+
+    The path input is hidden in 'simple' (default) UI mode; flip the session
+    state to 'advanced' before the path loader is rendered."""
     from witness.core.schema import DecisionType, Trace
     from witness.core.store import save_trace
 
@@ -109,8 +112,9 @@ def test_load_page_with_a_trace_in_session(tmp_path: Path) -> None:
     save_trace(t, p)
 
     at = _new_app()
+    at.session_state["ui_mode"] = "advanced"
     at.run()
-    # The path-input is inside an expander — find by key.
+    # The path-input lives only in advanced mode — find by key.
     path_input = next(
         ti for ti in at.text_input if getattr(ti, "key", None) == "path_input"
     )

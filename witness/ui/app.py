@@ -353,40 +353,43 @@ def page_load() -> None:
             st.session_state["uploader"] = None
             st.rerun()
 
-        # ---- "Add by path" inline strip (replaces broken expander)
-        with st.container():
-            cols = st.columns([3, 1, 1])
-            with cols[0]:
-                path_input = st.text_input(
-                    "path to trace JSON",
-                    placeholder="traces/run_xxx.trace.json",
-                    key="path_input",
-                    label_visibility="collapsed",
-                )
-            with cols[1]:
-                label_override = st.text_input(
-                    "label (optional)",
-                    placeholder="label · optional",
-                    key="label_override",
-                    label_visibility="collapsed",
-                )
-            with cols[2]:
-                if st.button(
-                    "Add by path",
-                    key="load_by_path",
-                    use_container_width=True,
-                    type="primary",
-                ) and path_input:
-                    try:
-                        t = load_trace(path_input)
-                    except Exception as e:
-                        st.error(f"failed to load: {e}")
-                    else:
-                        actual = _add_trace(
-                            label_override or Path(path_input).stem, t
-                        )
-                        st.toast(f"loaded {actual}")
-                        st.rerun()
+        # ---- "Add by path" inline strip (advanced-only) ---------
+        # In simple mode we hide this — the file uploader above plus the
+        # auto-discovered files below are enough for non-power users.
+        if not _is_simple():
+            with st.container():
+                cols = st.columns([3, 1, 1])
+                with cols[0]:
+                    path_input = st.text_input(
+                        "path to trace JSON",
+                        placeholder="traces/run_xxx.trace.json",
+                        key="path_input",
+                        label_visibility="collapsed",
+                    )
+                with cols[1]:
+                    label_override = st.text_input(
+                        "label (optional)",
+                        placeholder="label · optional",
+                        key="label_override",
+                        label_visibility="collapsed",
+                    )
+                with cols[2]:
+                    if st.button(
+                        "Add by path",
+                        key="load_by_path",
+                        use_container_width=True,
+                        type="primary",
+                    ) and path_input:
+                        try:
+                            t = load_trace(path_input)
+                        except Exception as e:
+                            st.error(f"failed to load: {e}")
+                        else:
+                            actual = _add_trace(
+                                label_override or Path(path_input).stem, t
+                            )
+                            st.toast(f"loaded {actual}")
+                            st.rerun()
 
         # ---- Filter row + count ---------------------------------
         f_cols = st.columns([4, 2, 1])
@@ -782,21 +785,45 @@ def page_inspect() -> None:
         f"{(t.wall_time_ms or 0) / 1000:.2f}s",
     )
 
+    if _is_simple():
+        st.markdown(
+            _help(
+                "Each row below is one decision your agent made — a tool "
+                "call, a model call, the final answer, etc. Click a row to "
+                "see its full input and output."
+            ),
+            unsafe_allow_html=True,
+        )
+
     main, side = st.columns([7, 3], gap="medium")
 
     with main:
-        tabs = st.tabs(["decisions", "messages", "raw JSON"])
+        # In simple mode we hide the messages and raw JSON tabs — most
+        # users only ever look at the decision sequence.
+        tabs = st.tabs(
+            ["decisions"]
+            if _is_simple()
+            else ["decisions", "messages", "raw JSON"]
+        )
         with tabs[0]:
-            tcols = st.columns([4, 1])
-            with tcols[0]:
+            if _is_simple():
+                # Search only — hide table-view toggle (advanced-only).
                 q = search_input(
                     key=f"dec_search_{label}",
                     placeholder="search decisions",
                 )
-            with tcols[1]:
-                view_table = st.toggle(
-                    "table view", value=False, key=f"dec_table_{label}"
-                )
+                view_table = False
+            else:
+                tcols = st.columns([4, 1])
+                with tcols[0]:
+                    q = search_input(
+                        key=f"dec_search_{label}",
+                        placeholder="search decisions",
+                    )
+                with tcols[1]:
+                    view_table = st.toggle(
+                        "table view", value=False, key=f"dec_table_{label}"
+                    )
 
             # Decision-type filter chips — only render types that exist
             type_filter = _decision_type_chips(t, key=f"dec_type_{label}")
@@ -824,20 +851,24 @@ def page_inspect() -> None:
             else:
                 _render_inspect_sequence(t, query=q)
 
-        with tabs[1]:
-            q = search_input(
-                key=f"msg_search_{label}", placeholder="search messages"
-            )
-            rows = _messages_dataframe(t).to_dict("records")
-            rows = filter_rows(rows, q)
-            if rows:
-                st.dataframe(
-                    pd.DataFrame(rows), use_container_width=True, hide_index=True
+        # messages + raw JSON tabs are advanced-only
+        if not _is_simple():
+            with tabs[1]:
+                q = search_input(
+                    key=f"msg_search_{label}", placeholder="search messages"
                 )
-            else:
-                st.caption("(no messages match)")
-        with tabs[2]:
-            st.json(t.model_dump(), expanded=False)
+                rows = _messages_dataframe(t).to_dict("records")
+                rows = filter_rows(rows, q)
+                if rows:
+                    st.dataframe(
+                        pd.DataFrame(rows),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+                else:
+                    st.caption("(no messages match)")
+            with tabs[2]:
+                st.json(t.model_dump(), expanded=False)
 
     with side:
         st.markdown(
@@ -1260,9 +1291,24 @@ def page_perturb() -> None:
         return
 
     st.markdown(_section_header("02", "perturbation type"), unsafe_allow_html=True)
+    if _is_simple():
+        st.markdown(
+            _help(
+                "A perturbation is a controlled change applied to the agent "
+                "before re-running it. 'truncate' shortens the input to test "
+                "what the agent does with less context."
+            ),
+            unsafe_allow_html=True,
+        )
+        # Only the truncate perturbation in simple mode — the other three
+        # (prompt_injection, model_swap, tool_removal) require either an
+        # adversarial mindset or agent cooperation.
+        perturbation_options = ["truncate"]
+    else:
+        perturbation_options = list_perturbations()
     ptype = st.radio(
         "perturbation",
-        list_perturbations(),
+        perturbation_options,
         horizontal=True,
         label_visibility="collapsed",
     )
@@ -1359,37 +1405,46 @@ def page_fingerprint() -> None:
         if fn is None:
             st.warning(f"Could not import `{base.entrypoint}`. Live replay disabled.")
 
-    # Preset save / load (kept inline, not behind an expander, to avoid
-    # the broken-icon bug we saw on Streamlit's expander chevron)
-    st.markdown(
-        '<div class="uppercase-label" style="margin: 14px 0 6px 0;">preset</div>',
-        unsafe_allow_html=True,
-    )
-    pcols = st.columns([1, 2])
-    with pcols[0]:
-        st.download_button(
-            "Save preset",
-            data=preset_to_json(_ss().fp_specs),
-            file_name="witness_fingerprint_preset.json",
-            mime="application/json",
-            key="fp_preset_dl",
-            use_container_width=True,
+    if _is_simple():
+        st.markdown(
+            _help(
+                "A fingerprint runs several perturbations and reports how "
+                "stable each kind of decision is. Low scores point to weak "
+                "spots in your agent."
+            ),
+            unsafe_allow_html=True,
         )
-    with pcols[1]:
-        uploaded = st.file_uploader(
-            "load preset",
-            type=["json"],
-            key="fp_preset_upload",
-            label_visibility="collapsed",
+    else:
+        # Preset save / load is an advanced-only convenience.
+        st.markdown(
+            '<div class="uppercase-label" style="margin: 14px 0 6px 0;">preset</div>',
+            unsafe_allow_html=True,
         )
-        if uploaded:
-            try:
-                specs = preset_from_json(uploaded.read().decode("utf-8"))
-                _ss().fp_specs = specs
-                st.toast(f"loaded preset · {len(specs)} perturbations")
-                st.rerun()
-            except Exception as e:
-                st.error(f"invalid preset: {e}")
+        pcols = st.columns([1, 2])
+        with pcols[0]:
+            st.download_button(
+                "Save preset",
+                data=preset_to_json(_ss().fp_specs),
+                file_name="witness_fingerprint_preset.json",
+                mime="application/json",
+                key="fp_preset_dl",
+                use_container_width=True,
+            )
+        with pcols[1]:
+            uploaded = st.file_uploader(
+                "load preset",
+                type=["json"],
+                key="fp_preset_upload",
+                label_visibility="collapsed",
+            )
+            if uploaded:
+                try:
+                    specs = preset_from_json(uploaded.read().decode("utf-8"))
+                    _ss().fp_specs = specs
+                    st.toast(f"loaded preset · {len(specs)} perturbations")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"invalid preset: {e}")
 
     st.markdown(
         '<div class="uppercase-label" style="margin: 16px 0 6px 0;">'
