@@ -438,9 +438,9 @@ def page_load() -> None:
                         _ss().active_label = label
                         st.rerun()
                 with btn_cols[2]:
+                    # confirm_label defaults to "Yes" — short enough for narrow columns
                     confirm_button(
                         label="Remove",
-                        confirm_label="Confirm",
                         key=f"remove_{label}",
                         on_confirm=lambda lab=label: (
                             _remove_trace(lab),

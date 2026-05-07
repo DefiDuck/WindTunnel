@@ -63,7 +63,7 @@ def empty_state(
 
 def confirm_button(
     label: str,
-    confirm_label: str,
+    confirm_label: str = "Yes",
     *,
     key: str,
     on_confirm: Callable[[], None],
@@ -72,9 +72,14 @@ def confirm_button(
 ) -> None:
     """Two-click destructive action.
 
-    First click reveals a confirmation button; auto-resets after `timeout_seconds`.
-    Caller passes ``on_confirm`` which actually mutates state. After confirm we
-    call ``st.rerun()`` so the UI reflects the mutation.
+    First click reveals a Yes/No pair; auto-resets after ``timeout_seconds``.
+    Default labels are deliberately short (``Yes`` / ``No``) so the pair
+    renders cleanly even when this widget lives inside a narrow column —
+    the original ``Confirm`` / ``Cancel`` labels wrapped to multiple lines
+    and rendered as ``Confi rm`` / ``Canc el`` in the trace-list row layout.
+
+    Caller passes ``on_confirm`` which actually mutates state. After confirm
+    we call ``st.rerun()`` so the UI reflects the mutation.
     """
     pending_key = f"_confirm_pending::{key}"
     pending_at_key = f"_confirm_at::{key}"
@@ -88,19 +93,29 @@ def confirm_button(
         st.session_state[pending_key] = False
 
     if not pending:
-        if st.button(label, key=f"_btn::{key}", type=type):
+        if st.button(label, key=f"_btn::{key}", type=type, use_container_width=True):
             st.session_state[pending_key] = True
             st.session_state[pending_at_key] = time.monotonic()
             st.rerun()
     else:
         col_a, col_b = st.columns(2)
         with col_a:
-            if st.button(confirm_label, key=f"_yes::{key}", type="primary"):
+            if st.button(
+                confirm_label,
+                key=f"_yes::{key}",
+                type="primary",
+                use_container_width=True,
+            ):
                 st.session_state[pending_key] = False
                 on_confirm()
                 st.rerun()
         with col_b:
-            if st.button("Cancel", key=f"_no::{key}", type="secondary"):
+            if st.button(
+                "No",
+                key=f"_no::{key}",
+                type="secondary",
+                use_container_width=True,
+            ):
                 st.session_state[pending_key] = False
                 st.rerun()
 
