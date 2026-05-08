@@ -1,4 +1,8 @@
-"""Witness — capture, perturb, and diff LLM agent decisions.
+"""WindTunnel — capture, perturb, and diff LLM agent decisions.
+
+(The Python package is named ``witness`` for stable imports; the project
+brand is **WindTunnel**. Both ``windtunnel`` and ``witness`` console scripts
+work — see pyproject.toml's [project.scripts].)
 
 Public API:
 

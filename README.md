@@ -1,6 +1,6 @@
-# Witness
+# WindTunnel
 
-[![tests](https://github.com/DefiDuck/Project-Witness/actions/workflows/tests.yml/badge.svg)](https://github.com/DefiDuck/Project-Witness/actions/workflows/tests.yml)
+[![tests](https://github.com/DefiDuck/Project-WindTunnel/actions/workflows/tests.yml/badge.svg)](https://github.com/DefiDuck/Project-WindTunnel/actions/workflows/tests.yml)
 [![python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -21,19 +21,19 @@
 | LangSmith / Helicone / Arize    | yes              | no                    | no               |
 | Garak / Promptfoo / DeepEval    | no               | partial (red-team)    | no               |
 | LangGraph / CrewAI              | partial          | no                    | no               |
-| **Witness**                     | **yes**          | **yes**               | **yes**          |
+| **WindTunnel**                     | **yes**          | **yes**               | **yes**          |
 
-Today engineers ship agents and find out about edge cases in production. Witness lets you find them in dev.
+Today engineers ship agents and find out about edge cases in production. WindTunnel lets you find them in dev.
 
 ## Install
 
 ```bash
-pip install witness                          # core only
-pip install "witness[anthropic]"             # + Anthropic adapter
-pip install "witness[openai]"                # + OpenAI adapter (also works for Ollama, vLLM, etc.)
-pip install "witness[rich]"                  # + premium terminal output
-pip install "witness[ui]"                    # + Streamlit web UI
-pip install "witness[all]"                   # everything
+pip install windtunnel                          # core only
+pip install "windtunnel[anthropic]"             # + Anthropic adapter
+pip install "windtunnel[openai]"                # + OpenAI adapter (also works for Ollama, vLLM, etc.)
+pip install "windtunnel[rich]"                  # + premium terminal output
+pip install "windtunnel[ui]"                    # + Streamlit web UI
+pip install "windtunnel[all]"                   # everything
 ```
 
 ## 60-second demo
@@ -61,17 +61,17 @@ Or from the CLI:
 python -m examples.research_agent --doc paper.txt              # writes baseline.json
 
 # perturb (rerun the agent under truncation)
-witness perturb baseline.json --type truncate                  # writes perturbed.json
+windtunnel perturb baseline.json --type truncate                  # writes perturbed.json
 #   --param fraction=0.5 by default; pass `--type truncate --param fraction=0.75` for more
 #   pass `--no-rerun` to skip re-execution and write a perturbed-input snapshot only
 
 # diff
-witness diff baseline.json perturbed.json                      # color-coded diff
-witness diff baseline.json perturbed.json --json               # structured JSON
+windtunnel diff baseline.json perturbed.json                      # color-coded diff
+windtunnel diff baseline.json perturbed.json --json               # structured JSON
 ```
 
 > Invoke the example as a module (`python -m examples.research_agent`) so the
-> trace's `entrypoint` is importable when `witness perturb` re-runs from a
+> trace's `entrypoint` is importable when `windtunnel perturb` re-runs from a
 > fresh process. Plain `python examples/research_agent.py` still captures
 > traces fine but produces an unimportable `__main__:research` entrypoint.
 
@@ -99,7 +99,7 @@ A trace JSON with a stable schema (`trace_v1`):
 A behavioral diff like:
 
 ```
-=== witness diff ===
+=== windtunnel diff ===
 baseline:  research_agent  (8 decisions, 2.84s)
 perturbed: research_agent  (5 decisions, 1.91s)  perturbation=truncate fraction=0.5
 
@@ -118,18 +118,19 @@ final output: CHANGED
 Three layers, independently usable:
 
 ```
-witness/
+witness/             # Python package — kept as `witness` for stable imports
   core/              # schema, capture decorator, JSON store
   perturbations/     # truncate, (more later)
   diff/              # behavioral diff logic
   adapters/          # auto-instrument Anthropic / OpenAI SDK calls
-  cli.py             # `witness diff`, `witness perturb`
+  ui/                # Streamlit web UI
+  cli.py             # `windtunnel diff`, `windtunnel perturb`
 ```
 
 Capture only? `import witness; @witness.observe()`. No perturbations imported.
 Diff only? `from witness.diff import diff_traces`. No SDKs imported.
 
-## What Witness is *not*
+## What WindTunnel is *not*
 
 - A new agent framework (it wraps yours)
 - A trace storage backend (plain JSON, SQLite at most)
@@ -139,7 +140,7 @@ Diff only? `from witness.diff import diff_traces`. No SDKs imported.
 ## Behavioral fingerprint
 
 ```bash
-witness fingerprint baseline.json \
+windtunnel fingerprint baseline.json \
     --run truncate:fraction=0.25 \
     --run truncate:fraction=0.5 \
     --run truncate:fraction=0.75 \
@@ -147,7 +148,7 @@ witness fingerprint baseline.json \
 ```
 
 ```
-=== witness fingerprint ===
+=== windtunnel fingerprint ===
 baseline:  run_c198b5f08e28
 runs:      4
 
@@ -166,8 +167,8 @@ Tells you which decision types are weak under stress.
 ## Web UI
 
 ```bash
-pip install "witness[ui]"
-witness ui                                    # opens http://localhost:8501
+pip install "windtunnel[ui]"
+windtunnel ui                                    # opens http://localhost:8501
 ```
 
 Five interactive pages: **Load traces**, **Inspect**, **Diff**, **Perturb &
@@ -177,11 +178,11 @@ N perturbations and renders a stability bar chart per decision type.
 
 ## Local LLM (Ollama)
 
-Witness has no Ollama-specific code — Ollama exposes an OpenAI-compatible API,
+WindTunnel has no Ollama-specific code — Ollama exposes an OpenAI-compatible API,
 so we point the `openai` SDK at it and the OpenAI adapter records everything.
 
 ```bash
-pip install "witness[openai]"
+pip install "windtunnel[openai]"
 ollama pull llama3.2:3b                                         # any tool-capable model
 ollama serve                                                    # if not running
 
@@ -189,8 +190,8 @@ python -m examples.ollama_research_agent --do-replay            # capture + pert
 python -m examples.ollama_research_agent --model qwen2.5:3b --perturbation prompt_injection --do-replay
 ```
 
-The captured `baseline.json` is a real LLM trace — `witness diff`,
-`witness fingerprint`, and every other tool work on it identically.
+The captured `baseline.json` is a real LLM trace — `windtunnel diff`,
+`windtunnel fingerprint`, and every other tool work on it identically.
 
 ## Built-in perturbations
 
@@ -202,7 +203,7 @@ The captured `baseline.json` is a real LLM trace — `witness diff`,
 | `tool_removal`    | Remove a named tool (or all tools)                           |
 
 `model_swap` and `tool_removal` only change behavior if your agent reads
-`witness.replay_context()` during the run — Witness records the perturbation
+`witness.replay_context()` during the run — WindTunnel records the perturbation
 either way, so a fingerprint can detect "this agent ignores model swaps" as
 a stability fact.
 
@@ -218,9 +219,9 @@ def my_agent(prompt: str) -> str:
 ## JSON Schema
 
 The on-disk trace format is published as
-[`witness/schema/trace_v1.json`](witness/schema/trace_v1.json). Regenerate
-from the live pydantic models with `witness schema --regenerate`, or
-`witness schema` to print it on stdout.
+[`windtunnel/schema/trace_v1.json`](windtunnel/schema/trace_v1.json). Regenerate
+from the live pydantic models with `windtunnel schema --regenerate`, or
+`windtunnel schema` to print it on stdout.
 
 ## Status
 
@@ -232,11 +233,11 @@ Done:
 - [x] Stable JSON trace schema, published as JSON Schema (`trace_v1.json`)
 - [x] Perturbations: `truncate`, `prompt_injection`, `model_swap`, `tool_removal`
 - [x] `replay()` (programmatic + CLI rerun via `entrypoint`)
-- [x] Behavioral diff with LCS alignment (`witness diff`)
-- [x] `witness fingerprint` — N-perturbation stability vector
+- [x] Behavioral diff with LCS alignment (`windtunnel diff`)
+- [x] `windtunnel fingerprint` — N-perturbation stability vector
 - [x] CLI: `diff`, `perturb`, `inspect`, `perturbations`, `fingerprint`, `schema`, `ui`
 - [x] Rich-powered terminal output (auto-detected, with `--plain` fallback)
-- [x] **Streamlit web UI** (`witness ui`) — interactive trace inspection, replay, fingerprint
+- [x] **Streamlit web UI** (`windtunnel ui`) — interactive trace inspection, replay, fingerprint
 - [x] Anthropic + OpenAI SDK adapters (the OpenAI one Just Works for Ollama / vLLM / LM Studio)
 
 Roadmap:

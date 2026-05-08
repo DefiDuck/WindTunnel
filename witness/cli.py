@@ -49,9 +49,9 @@ def _print_rich(renderable: Any, *, no_color: bool = False) -> None:
 
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
-@click.version_option(__version__, prog_name="witness")
+@click.version_option(__version__, prog_name="windtunnel")
 def cli() -> None:
-    """Witness — capture, perturb, and diff LLM agent decisions."""
+    """WindTunnel — capture, perturb, and diff LLM agent decisions."""
 
 
 # ---------------------------------------------------------------------------
@@ -474,9 +474,9 @@ def cmd_schema(regenerate: bool, path: bool) -> None:
     help="Print the app's file path and exit (useful for `streamlit run` directly).",
 )
 def cmd_ui(port: int | None, no_browser: bool, print_path: bool) -> None:
-    """Launch the Witness web UI (Streamlit).
+    """Launch the WindTunnel web UI (Streamlit).
 
-    Requires the `ui` extra: ``pip install 'witness[ui]'``.
+    Requires the `ui` extra: ``pip install 'windtunnel[ui]'``.
     """
     try:
         from witness.ui import APP_PATH
@@ -509,7 +509,7 @@ def cmd_ui(port: int | None, no_browser: bool, print_path: bool) -> None:
         click.secho(
             "\nstreamlit failed to start. If the error above mentions "
             "'No module named streamlit', install it for THIS python:\n"
-            f"    {sys.executable} -m pip install --user 'witness[ui]'",
+            f"    {sys.executable} -m pip install --user 'windtunnel[ui]'",
             fg="yellow",
             err=True,
         )
@@ -536,7 +536,7 @@ def _parse_params(raw: tuple[str, ...]) -> dict[str, Any]:
 
 
 def main() -> None:
-    """Entry point for the `witness` console script."""
+    """Entry point for the `windtunnel` console script (also aliased as `witness`)."""
     # Ensure rich (and us) can emit unicode box-drawing chars on Windows cmd.exe,
     # which defaults to cp1252. Safe no-op on shells that already speak utf-8.
     for stream in (sys.stdout, sys.stderr):
@@ -544,7 +544,7 @@ def main() -> None:
             stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
         except (AttributeError, OSError):
             pass
-    cli(prog_name="witness")
+    cli(prog_name="windtunnel")
 
 
 if __name__ == "__main__":

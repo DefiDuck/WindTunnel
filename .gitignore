@@ -43,6 +43,12 @@ perturbed.json
 
 # Design handoff bundle (unpacked locally only)
 .design-pkg/
+Design/
+
+# Local Claude Code dev artifacts
+.claude/
+CLAUDE.md
+.release-notes-*.md
 
 # Streamlit subprocess test artifacts
 stdout.txt

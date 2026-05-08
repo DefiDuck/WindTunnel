@@ -3,7 +3,7 @@ requires = ["hatchling>=1.21"]
 build-backend = "hatchling.build"
 
 [project]
-name = "witness"
+name = "windtunnel"
 version = "0.2.0"
 description = "Capture, perturb, and diff LLM agent decisions. Make agent behavior under stress legible."
 readme = "README.md"
@@ -46,11 +46,12 @@ dev = [
 ]
 
 [project.scripts]
-witness = "witness.cli:main"
+windtunnel = "witness.cli:main"
+witness = "witness.cli:main"  # legacy alias — keep working until v1.0
 
 [project.urls]
-Homepage = "https://github.com/witness-ai/witness"
-Issues = "https://github.com/witness-ai/witness/issues"
+Homepage = "https://github.com/DefiDuck/Project-Witness"
+Issues = "https://github.com/DefiDuck/Project-Witness/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["witness"]

@@ -56,7 +56,7 @@ from witness.ui.theme import THEME_CSS
 # ---------------------------------------------------------------------------
 
 st.set_page_config(
-    page_title="Witness — agent decision diffing",
+    page_title="WindTunnel — agent decision diffing",
     page_icon="W",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -596,7 +596,7 @@ def _onboarding_card() -> None:
     st.markdown(
         '<div style="margin: 14px 0 4px 0;">'
         '<div style="font-size: 16px; font-weight: 500; color: var(--fg); '
-        'margin-bottom: 6px;">Welcome to Witness</div>'
+        'margin-bottom: 6px;">Welcome to WindTunnel</div>'
         '<div class="mono faint" style="font-size: 12px;">'
         "Capture, perturb, and diff your agent's decisions."
         "</div>"
@@ -1799,7 +1799,7 @@ with st.sidebar:
         '<div style="display: flex; align-items: baseline; gap: 8px; '
         'margin-bottom: 18px;">'
         '<span style="font-weight: 600; font-size: 15px; letter-spacing: -0.01em;">'
-        "witness</span>"
+        "windtunnel</span>"
         f'<span class="mono dim" style="font-size: 10.5px;">'
         f'v{escape(witness.__version__)}</span>'
         "</div>",
