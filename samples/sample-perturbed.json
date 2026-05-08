@@ -1,0 +1,109 @@
+{
+  "schema_version": "1.0",
+  "run_id": "run_8403defc962f",
+  "agent_name": "sample_research_agent",
+  "model": null,
+  "tools_available": [],
+  "messages": [],
+  "decisions": [
+    {
+      "step_id": "s_6226178bd8ac",
+      "timestamp": "2026-05-08T09:20:08.697365+00:00",
+      "type": "model_call",
+      "input": {
+        "model": "mock-claude",
+        "prompt": "Summarize this document"
+      },
+      "output": {
+        "text": "I'll search the document first."
+      },
+      "parent_step_id": null,
+      "duration_ms": 12,
+      "metadata": {
+        "sdk": "mock"
+      }
+    },
+    {
+      "step_id": "s_b7b394039301",
+      "timestamp": "2026-05-08T09:20:08.697376+00:00",
+      "type": "tool_call",
+      "input": {
+        "name": "search",
+        "args": {
+          "query": "main argument"
+        }
+      },
+      "output": {},
+      "parent_step_id": null,
+      "duration_ms": 1,
+      "metadata": {
+        "sdk": "mock"
+      }
+    },
+    {
+      "step_id": "s_c83aa4fa2dd0",
+      "timestamp": "2026-05-08T09:20:08.697389+00:00",
+      "type": "tool_result",
+      "input": {
+        "name": "search"
+      },
+      "output": {
+        "hits": []
+      },
+      "parent_step_id": null,
+      "duration_ms": 2,
+      "metadata": {
+        "sdk": "mock"
+      }
+    },
+    {
+      "step_id": "s_28225fffcf13",
+      "timestamp": "2026-05-08T09:20:08.697400+00:00",
+      "type": "model_call",
+      "input": {
+        "model": "mock-claude",
+        "prompt": "Synthesize"
+      },
+      "output": {
+        "text": "Constitutional AI is a method for training AI assistants to be helpful, harmless, and honest. The approach uses a set."
+      },
+      "parent_step_id": null,
+      "duration_ms": 15,
+      "metadata": {
+        "sdk": "mock"
+      }
+    },
+    {
+      "step_id": "s_e15eca6c83a2",
+      "timestamp": "2026-05-08T09:20:08.697408+00:00",
+      "type": "final_output",
+      "input": {},
+      "output": {
+        "text": "Constitutional AI is a method for training AI assistants to be helpful, harmless, and honest. The approach uses a set."
+      },
+      "parent_step_id": null,
+      "duration_ms": null,
+      "metadata": {
+        "sdk": "mock"
+      }
+    }
+  ],
+  "final_output": "Constitutional AI is a method for training AI assistants to be helpful, harmless, and honest. The approach uses a set.",
+  "started_at": "2026-05-08T09:20:08.697321+00:00",
+  "ended_at": "2026-05-08T09:20:08.697413+00:00",
+  "wall_time_ms": 0,
+  "entrypoint": "witness.ui.onboarding:_sample_agent",
+  "parent_run_id": "run_a70f06505b1e",
+  "perturbation": {
+    "type": "truncate",
+    "params": {
+      "fraction": 0.75,
+      "preserve_system": true
+    },
+    "summary": "removed last 75% of context"
+  },
+  "inputs": {
+    "doc": "Constitutional AI is a method for training AI assistants to be helpful, harmless, and honest.\n\nThe approach uses a set"
+  },
+  "metadata": {}
+}

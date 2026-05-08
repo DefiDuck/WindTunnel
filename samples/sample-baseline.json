@@ -1,0 +1,136 @@
+{
+  "schema_version": "1.0",
+  "run_id": "run_a70f06505b1e",
+  "agent_name": "sample_research_agent",
+  "model": null,
+  "tools_available": [],
+  "messages": [],
+  "decisions": [
+    {
+      "step_id": "s_32daa97599c8",
+      "timestamp": "2026-05-08T09:20:08.697180+00:00",
+      "type": "model_call",
+      "input": {
+        "model": "mock-claude",
+        "prompt": "Summarize this document"
+      },
+      "output": {
+        "text": "I'll search the document first."
+      },
+      "parent_step_id": null,
+      "duration_ms": 12,
+      "metadata": {
+        "sdk": "mock"
+      }
+    },
+    {
+      "step_id": "s_7a3a66be446b",
+      "timestamp": "2026-05-08T09:20:08.697202+00:00",
+      "type": "tool_call",
+      "input": {
+        "name": "search",
+        "args": {
+          "query": "main argument"
+        }
+      },
+      "output": {},
+      "parent_step_id": null,
+      "duration_ms": 1,
+      "metadata": {
+        "sdk": "mock"
+      }
+    },
+    {
+      "step_id": "s_2c34c0eb593f",
+      "timestamp": "2026-05-08T09:20:08.697219+00:00",
+      "type": "tool_result",
+      "input": {
+        "name": "search"
+      },
+      "output": {
+        "hits": []
+      },
+      "parent_step_id": null,
+      "duration_ms": 2,
+      "metadata": {
+        "sdk": "mock"
+      }
+    },
+    {
+      "step_id": "s_99de745e556b",
+      "timestamp": "2026-05-08T09:20:08.697229+00:00",
+      "type": "tool_call",
+      "input": {
+        "name": "read_document",
+        "args": {
+          "start": 0,
+          "len": 472
+        }
+      },
+      "output": {},
+      "parent_step_id": null,
+      "duration_ms": 1,
+      "metadata": {
+        "sdk": "mock"
+      }
+    },
+    {
+      "step_id": "s_0074132652d1",
+      "timestamp": "2026-05-08T09:20:08.697238+00:00",
+      "type": "tool_result",
+      "input": {
+        "name": "read_document"
+      },
+      "output": {
+        "text": "Constitutional AI is a method for training AI assistants to be helpful, harmless, and honest.\n\nThe approach uses a set of principles, called a constitution, to guide the model's behavior.\nRather than relying solely on human feedback, the model critiques and revises its own outputs.\n\nThis technique reduces the burden on human annotators while still producing aligned behavior.\nThe result is a model that explains its reasoning and refuses harmful requests transparently.\n"
+      },
+      "parent_step_id": null,
+      "duration_ms": 2,
+      "metadata": {
+        "sdk": "mock"
+      }
+    },
+    {
+      "step_id": "s_b515b63b1313",
+      "timestamp": "2026-05-08T09:20:08.697252+00:00",
+      "type": "model_call",
+      "input": {
+        "model": "mock-claude",
+        "prompt": "Synthesize"
+      },
+      "output": {
+        "text": "Constitutional AI is a method for training AI assistants to be helpful, harmless, and honest. The approach uses a set of principles, called a constitution, to guide the model's behavior. This technique reduces the burden on human annotators while still producing aligned behavior."
+      },
+      "parent_step_id": null,
+      "duration_ms": 15,
+      "metadata": {
+        "sdk": "mock"
+      }
+    },
+    {
+      "step_id": "s_1e06e73b039f",
+      "timestamp": "2026-05-08T09:20:08.697260+00:00",
+      "type": "final_output",
+      "input": {},
+      "output": {
+        "text": "Constitutional AI is a method for training AI assistants to be helpful, harmless, and honest. The approach uses a set of principles, called a constitution, to guide the model's behavior. This technique reduces the burden on human annotators while still producing aligned behavior."
+      },
+      "parent_step_id": null,
+      "duration_ms": null,
+      "metadata": {
+        "sdk": "mock"
+      }
+    }
+  ],
+  "final_output": "Constitutional AI is a method for training AI assistants to be helpful, harmless, and honest. The approach uses a set of principles, called a constitution, to guide the model's behavior. This technique reduces the burden on human annotators while still producing aligned behavior.",
+  "started_at": "2026-05-08T09:20:08.697066+00:00",
+  "ended_at": "2026-05-08T09:20:08.697268+00:00",
+  "wall_time_ms": 0,
+  "entrypoint": "witness.ui.onboarding:_sample_agent",
+  "parent_run_id": null,
+  "perturbation": null,
+  "inputs": {
+    "doc": "Constitutional AI is a method for training AI assistants to be helpful, harmless, and honest.\n\nThe approach uses a set of principles, called a constitution, to guide the model's behavior.\nRather than relying solely on human feedback, the model critiques and revises its own outputs.\n\nThis technique reduces the burden on human annotators while still producing aligned behavior.\nThe result is a model that explains its reasoning and refuses harmful requests transparently.\n"
+  },
+  "metadata": {}
+}
