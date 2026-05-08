@@ -96,18 +96,32 @@ def render_traces_list(
         key="traces_uploader",
         label_visibility="collapsed",
     )
+    # Track which uploaded files we've already processed so the rerun
+    # doesn't reload them on every render. Mutating the file_uploader's
+    # own session_state key (e.g. st.session_state['traces_uploader'] = None)
+    # is illegal AFTER the widget instantiates — Streamlit raises
+    # StreamlitAPIException. The right pattern is a parallel "processed"
+    # set keyed by Streamlit's per-upload file_id.
     if uploaded:
+        processed: set[str] = state.setdefault("_traces_processed_uploads", set())
+        new_count = 0
         for f in uploaded:
+            fid = getattr(f, "file_id", None) or f"{f.name}:{f.size}"
+            if fid in processed:
+                continue
             try:
                 text = f.read().decode("utf-8")
                 t = Trace.model_validate_json(text)
             except Exception as e:
                 st.error(f"failed to parse `{f.name}`: {e}")
+                processed.add(fid)  # don't keep retrying a broken file
                 continue
             actual = add_trace(Path(f.name).stem, t)
             st.toast(f"loaded {actual} · {len(t.decisions)} decisions")
-        st.session_state["traces_uploader"] = None
-        st.rerun()
+            processed.add(fid)
+            new_count += 1
+        if new_count > 0:
+            st.rerun()
 
     # ---- Empty state -----------------------------------------------
     if not loaded:
