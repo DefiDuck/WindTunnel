@@ -1134,6 +1134,49 @@ kbd {
     font-size: 12px;
 }
 
+/* ---- Flow ribbon — Witness's signature visualization (commit 9) ----- */
+
+.flow-ribbon-wrap {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 4px 0 8px 0;
+    margin-bottom: 6px;
+    /* Make the active node auto-scroll into view nicely on URL anchors */
+    scroll-behavior: smooth;
+}
+.flow-ribbon-wrap .flow-ribbon,
+.flow-ribbon-wrap .flow-diff-ribbons {
+    display: block;
+    /* Don't shrink — let the SVG dictate width and the wrap handle scroll */
+    min-width: 100%;
+}
+
+.flow-node-link { cursor: pointer; outline: none; }
+.flow-node {
+    transition: transform 100ms ease, opacity 100ms ease;
+}
+.flow-node-link:hover .flow-node {
+    transform: translateY(-2px);
+}
+.flow-node-link:hover .flow-node rect:not([opacity]),
+.flow-node-link:hover .flow-node rect[opacity="1"] {
+    /* Subtle hover lighten — Streamlit's CSS doesn't reach SVG attrs nicely
+       so we just bump the rect via an attribute selector. */
+    fill: var(--bg-page);
+}
+.flow-node-active {
+    transform: translateY(-2px);
+}
+.flow-node-link #node-* { scroll-margin-inline: 80px; }
+
+/* Hairline divider below the ribbon */
+.flow-divider {
+    border: 0;
+    height: 1px;
+    background: var(--border);
+    margin: 6px 0 16px 0;
+}
+
 /* Decision detail — typed content blocks (replaces the old metadata grid) */
 
 .td-meta-strip {

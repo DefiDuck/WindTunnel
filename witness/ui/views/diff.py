@@ -26,6 +26,7 @@ import streamlit as st
 
 from witness.core.schema import Decision, DecisionType
 from witness.diff.behavioral import DecisionChange, TraceDiff
+from witness.ui.components.flow import render_diff_ribbons
 
 _GUTTER = {
     "added": ("+", "var(--ok)"),
@@ -43,13 +44,53 @@ def render_diff_view(
     label_b: str,
     diff: TraceDiff,
 ) -> None:
-    """Render the full diff view: header strip + body + minimap."""
+    """Render the full diff view.
+
+    Two modes selected via ``?dv_view=ribbon|list`` (defaults to ribbon):
+
+    - ribbon: stacked baseline + perturbed flow ribbons with diff annotations
+              (added=green +, removed=red ghost, changed=amber ~) and
+              connection lines between matched decisions. The hero view.
+    - list:   the legacy gutter+minimap text diff. Kept as an escape hatch
+              for engineers who want to grep the raw delta.
+    """
     _render_diff_header(label_a, label_b, diff)
-    body, minimap = st.columns([24, 1], gap="small")
-    with body:
-        _render_diff_body(diff)
-    with minimap:
-        _render_minimap(diff)
+    view = _read_view_param()
+    _render_view_toggle(view)
+    if view == "list":
+        body, minimap = st.columns([24, 1], gap="small")
+        with body:
+            _render_diff_body(diff)
+        with minimap:
+            _render_minimap(diff)
+    else:
+        st.markdown(
+            f'<div class="flow-ribbon-wrap">'
+            f'{render_diff_ribbons(label_a, label_b, diff.alignment.pairs)}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+
+def _read_view_param() -> str:
+    qp = st.query_params
+    raw = qp.get("dv_view")
+    val = raw[0] if isinstance(raw, list) and raw else raw
+    return val if val in ("ribbon", "list") else "ribbon"
+
+
+def _render_view_toggle(active: str) -> None:
+    """Pill toggle (ribbon / list) rendered top-right of the diff view."""
+    pills = []
+    for v, label in (("ribbon", "Ribbon"), ("list", "List")):
+        cls = "wt-pill wt-pill-active" if v == active else "wt-pill"
+        pills.append(f'<a class="{cls}" href="?dv_view={v}">{label}</a>')
+    st.markdown(
+        f'<div style="display: flex; justify-content: flex-end; margin: 4px 0 12px;">'
+        f'<div class="wt-pill-group">{"".join(pills)}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
 
 # ---------------------------------------------------------------------------

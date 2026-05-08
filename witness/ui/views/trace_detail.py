@@ -24,6 +24,7 @@ import streamlit as st
 
 from witness.core.schema import Decision, DecisionType, Trace
 from witness.ui.components import empty_state
+from witness.ui.components.flow import render_flow_ribbon
 
 _TYPE_COLOR = {
     DecisionType.MODEL_CALL.value: "var(--fg-dim)",
@@ -175,13 +176,11 @@ def _render_sequence(
         )
         return
 
-    # Selected decision index (per-trace, kept in session state)
+    # Selection (URL ?sel=<i> wins over session state on this render)
     sel_key = f"td_sel_{label}"
     selected: int = state.get(sel_key, 0)
     if selected >= len(trace.decisions):
         selected = 0
-
-    # Allow selection via ?sel=<i>
     qp = st.query_params
     sel_raw = qp.get("sel")
     sel_param = sel_raw[0] if isinstance(sel_raw, list) and sel_raw else sel_raw
@@ -194,26 +193,16 @@ def _render_sequence(
             state[sel_key] = new_sel
             selected = new_sel
 
-    rail, pane = st.columns([1, 3], gap="medium")
-    with rail:
-        rail_html = ['<div class="td-seq-rail">']
-        for i, d in enumerate(trace.decisions):
-            href = f"?trace={escape(label)}&tab=sequence&sel={i}"
-            cls = "td-seq-item td-seq-active" if i == selected else "td-seq-item"
-            color = _TYPE_COLOR.get(d.type.value, "var(--fg-dim)")
-            rail_html.append(
-                f'<a class="{cls}" href="{href}">'
-                f'<span class="td-seq-idx">{i:02d}</span>'
-                f'<span class="td-seq-type" style="color: {color};">'
-                f'{escape(d.type.value)}</span>'
-                f'</a>'
-            )
-        rail_html.append("</div>")
-        st.markdown("".join(rail_html), unsafe_allow_html=True)
+    # ---- Flow ribbon (the trace's iconic visualization) ----
+    ribbon = render_flow_ribbon(label, trace.decisions, selected=selected)
+    st.markdown(
+        f'<div class="flow-ribbon-wrap">{ribbon}</div>',
+        unsafe_allow_html=True,
+    )
 
-    with pane:
-        d = trace.decisions[selected]
-        _render_decision_fields(d)
+    # ---- Hairline divider, then the typed content blocks ----
+    st.markdown('<hr class="flow-divider"/>', unsafe_allow_html=True)
+    _render_decision_fields(trace.decisions[selected])
 
 
 def _render_decision_fields(d: Decision) -> None:

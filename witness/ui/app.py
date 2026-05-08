@@ -1815,6 +1815,8 @@ def _handle_cmd_url() -> None:
         st.session_state["nav_target"] = nav
         st.query_params.clear()
         st.rerun()
+    # Note: ?dv_view=ribbon|list is read directly in views/diff.py — no
+    # central dispatch needed; the URL persists naturally between reruns.
 
 
 _handle_cmd_url()
