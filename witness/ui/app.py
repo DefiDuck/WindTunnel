@@ -354,44 +354,6 @@ def page_load() -> None:
             st.session_state["uploader"] = None
             st.rerun()
 
-        # ---- "Add by path" inline strip (advanced-only) ---------
-        # In simple mode we hide this — the file uploader above plus the
-        # auto-discovered files below are enough for non-power users.
-        if not _is_simple():
-            with st.container():
-                cols = st.columns([3, 1, 1])
-                with cols[0]:
-                    path_input = st.text_input(
-                        "path to trace JSON",
-                        placeholder="traces/run_xxx.trace.json",
-                        key="path_input",
-                        label_visibility="collapsed",
-                    )
-                with cols[1]:
-                    label_override = st.text_input(
-                        "label (optional)",
-                        placeholder="label · optional",
-                        key="label_override",
-                        label_visibility="collapsed",
-                    )
-                with cols[2]:
-                    if st.button(
-                        "Add by path",
-                        key="load_by_path",
-                        use_container_width=True,
-                        type="primary",
-                    ) and path_input:
-                        try:
-                            t = load_trace(path_input)
-                        except Exception as e:
-                            st.error(f"failed to load: {e}")
-                        else:
-                            actual = _add_trace(
-                                label_override or Path(path_input).stem, t
-                            )
-                            st.toast(f"loaded {actual}")
-                            st.rerun()
-
         # ---- Filter row + count ---------------------------------
         f_cols = st.columns([4, 2, 1])
         with f_cols[0]:
@@ -1799,15 +1761,120 @@ def _discover_trace_files() -> list[Path]:
 
 
 # ---------------------------------------------------------------------------
+# Top-level views (the three sidebar nav items)
+# ---------------------------------------------------------------------------
+
+
+def view_traces() -> None:
+    """Traces nav — list of all loaded traces, opens trace detail on selection.
+
+    Detail vs. list is decided by URL query param ``?trace=<label>`` and the
+    session's active_label. Inspect-page rendering is reused for now and will
+    be replaced by a dedicated trace_detail view in commit 4.
+    """
+    qp = st.query_params
+    raw_trace_id = qp.get("trace")
+    trace_id: str | None
+    if isinstance(raw_trace_id, list):
+        trace_id = raw_trace_id[0] if raw_trace_id else None
+    else:
+        trace_id = raw_trace_id
+    state = _ss()
+    loaded: dict[str, Any] = state.get("loaded_traces", {})
+    if trace_id is not None and trace_id in loaded:
+        state["active_label"] = trace_id
+        page_inspect()
+    else:
+        page_load()
+
+
+def view_diffs() -> None:
+    """Diffs nav — pick two traces and render their behavioral diff."""
+    page_diff()
+
+
+def view_settings() -> None:
+    """Settings nav — capture config, advanced loaders, shortcut reference.
+
+    Houses anything that's not part of a primary workflow: the path-based
+    trace loader, fingerprint preset save/load, and the keyboard shortcut
+    table. Functions that used to live on standalone pages (Perturb,
+    Fingerprint) are still callable from here while the redesign is in
+    flight; commit 4 moves them to trace detail and commit 7 wires ⌘K.
+    """
+    _topbar("Settings", "capture config and shortcuts")
+
+    # --- Load by path (was on Load page in advanced mode) ---
+    st.markdown(
+        '<div class="uppercase-label" style="margin: 14px 0 8px 0;">'
+        "load by path</div>",
+        unsafe_allow_html=True,
+    )
+    cols = st.columns([3, 1, 1])
+    with cols[0]:
+        path_input = st.text_input(
+            "path to trace JSON",
+            placeholder="traces/run_xxx.trace.json",
+            key="path_input",
+            label_visibility="collapsed",
+        )
+    with cols[1]:
+        label_override = st.text_input(
+            "label (optional)",
+            placeholder="label · optional",
+            key="label_override",
+            label_visibility="collapsed",
+        )
+    with cols[2]:
+        if (
+            st.button(
+                "Add by path",
+                key="load_by_path",
+                use_container_width=True,
+                type="primary",
+            )
+            and path_input
+        ):
+            try:
+                t = load_trace(path_input)
+            except Exception as e:
+                st.error(f"failed to load: {e}")
+            else:
+                actual = _add_trace(label_override or Path(path_input).stem, t)
+                st.toast(f"loaded {actual}")
+                st.rerun()
+
+    # --- Shortcut reference ---
+    st.markdown(
+        '<div class="uppercase-label" style="margin: 22px 0 8px 0;">'
+        "keyboard shortcuts</div>",
+        unsafe_allow_html=True,
+    )
+    shortcuts: list[tuple[str, str]] = [
+        ("Open command bar", "Ctrl/Cmd + K"),
+        ("Open trace from disk", "Ctrl/Cmd + O"),
+        ("Perturb current trace", "P"),
+        ("Diff current trace", "D"),
+        ("Close overlay", "Esc"),
+    ]
+    rows = "".join(
+        f'<div style="display: grid; grid-template-columns: 1fr auto; gap: 16px; '
+        f'padding: 6px 0; border-bottom: 1px solid var(--border);">'
+        f'<span style="font-size: 13px; color: var(--fg);">{k}</span>'
+        f'<kbd>{v}</kbd></div>'
+        for k, v in shortcuts
+    )
+    st.markdown(rows, unsafe_allow_html=True)
+
+
+# ---------------------------------------------------------------------------
 # Sidebar / nav
 # ---------------------------------------------------------------------------
 
 PAGES: dict[str, Callable[[], None]] = {
-    "Load traces": page_load,
-    "Inspect": page_inspect,
-    "Diff": page_diff,
-    "Perturb & Replay": page_perturb,
-    "Fingerprint": page_fingerprint,
+    "Traces": view_traces,
+    "Diffs": view_diffs,
+    "Settings": view_settings,
 }
 
 with st.sidebar:

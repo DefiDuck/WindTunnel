@@ -28,11 +28,11 @@ def _new_app() -> AppTest:
 
 
 def _page_nav(at: AppTest):
-    """Locate the page-nav radio (which has 'Inspect' as an option), tolerant
-    of any number of other radios in the sidebar (mode toggle, etc.)."""
+    """Locate the page-nav radio (3 sections: Traces / Diffs / Settings),
+    tolerant of any number of other radios in the sidebar (mode toggle, etc.)."""
     for r in at.sidebar.radio:
         opts = list(getattr(r, "options", []) or [])
-        if "Inspect" in opts:
+        if "Traces" in opts:
             return r
     raise AssertionError(
         "page-nav radio not found — options seen: "
@@ -56,53 +56,37 @@ def _page_text(at: AppTest) -> str:
     return "\n".join(parts)
 
 
-def test_app_renders_load_page_without_errors() -> None:
+def test_app_renders_traces_section_without_errors() -> None:
+    """Default landing section is Traces."""
     at = _new_app()
     at.run()
-    # Default page is 'Load traces'
     assert not at.exception, f"unexpected exception: {at.exception}"
+    # Topbar uses "Load traces" while page_load is still being reused as the
+    # Traces list renderer. Commit 2 replaces this with a dense list view and
+    # the assertion will move to the new view's marker text.
     assert "Load traces" in _page_text(at)
 
 
-def test_app_switches_to_inspect_page_with_no_traces() -> None:
-    at = _new_app()
-    at.run()
-    # Find the sidebar radio and select 'Inspect'
-    radio = _page_nav(at)
-    radio.set_value("Inspect").run()
-    assert not at.exception
-    assert "Inspect" in _page_text(at)
-
-
-def test_app_switches_to_diff_page_with_no_traces() -> None:
+def test_app_switches_to_diffs_section() -> None:
     at = _new_app()
     at.run()
     radio = _page_nav(at)
-    radio.set_value("Diff").run()
+    radio.set_value("Diffs").run()
     assert not at.exception
 
 
-def test_app_switches_to_perturb_page_with_no_traces() -> None:
+def test_app_switches_to_settings_section() -> None:
     at = _new_app()
     at.run()
     radio = _page_nav(at)
-    radio.set_value("Perturb & Replay").run()
+    radio.set_value("Settings").run()
     assert not at.exception
+    assert "Settings" in _page_text(at)
 
 
-def test_app_switches_to_fingerprint_page_with_no_traces() -> None:
-    at = _new_app()
-    at.run()
-    radio = _page_nav(at)
-    radio.set_value("Fingerprint").run()
-    assert not at.exception
-
-
-def test_load_page_with_a_trace_in_session(tmp_path: Path) -> None:
-    """Load a real trace file via the path-input loader and verify it shows up.
-
-    The path input is hidden in 'simple' (default) UI mode; flip the session
-    state to 'advanced' before the path loader is rendered."""
+def test_settings_path_loader_loads_a_trace(tmp_path: Path) -> None:
+    """The path-based trace loader lives on the Settings section after the
+    nav collapse. Loading via that loader should populate session state."""
     from witness.core.schema import DecisionType, Trace
     from witness.core.store import save_trace
 
@@ -112,9 +96,10 @@ def test_load_page_with_a_trace_in_session(tmp_path: Path) -> None:
     save_trace(t, p)
 
     at = _new_app()
-    at.session_state["ui_mode"] = "advanced"
     at.run()
-    # The path-input lives only in advanced mode — find by key.
+    radio = _page_nav(at)
+    radio.set_value("Settings").run()
+
     path_input = next(
         ti for ti in at.text_input if getattr(ti, "key", None) == "path_input"
     )
