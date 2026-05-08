@@ -20,31 +20,59 @@ THEME_CSS = """
 
 <style>
 :root {
-    /* dark — default */
-    --bg:        #0a0a0a;
-    --bg-1:      #101010;
-    --bg-2:      #161616;
-    --bg-3:      #1c1c1c;
-    --border:    #222;
-    --border-2:  #2a2a2a;
-    --fg:        #fafafa;
-    --fg-dim:    #888;
-    --fg-faint:  #555;
-    --fg-faintest: #3a3a3a;
-    --accent:    #e8a951;
-    --accent-ink:#0a0a0a;
-    --add:       #3ec286;
-    --del:       #e36876;
-    --add-bg:    rgba(62,194,134,0.10);
-    --del-bg:    rgba(227,104,118,0.10);
-    --hover:     rgba(255,255,255,0.025);
-    --selected:  rgba(255,255,255,0.04);
+    /* Linear / Vercel / Anthropic dark — one accent, restrained scale.
+       Token names follow the redesign brief. Legacy aliases kept below
+       so existing rules don't break in this commit; commit 5 -> commit 6
+       will sweep references onto the new names. */
 
-    --sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-    --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    /* Surfaces */
+    --bg-page:     #08090A;
+    --bg-surface:  #0E0F11;
+    --bg-raised:   #15171A;
 
-    --radius: 4px;
-    --radius-lg: 6px;
+    /* Borders */
+    --border:        rgba(255, 255, 255, 0.08);
+    --border-hover:  rgba(255, 255, 255, 0.12);
+
+    /* Foreground ramp */
+    --fg:          #E6E6E6;
+    --fg-muted:    #9A9A9A;
+    --fg-faint:    #6B6B6B;
+    --fg-disabled: #4A4A4A;
+
+    /* Accent — one only, used sparingly */
+    --accent:    #D97757;     /* Anthropic clay */
+    --accent-fg: #0A0A0A;
+
+    /* Status */
+    --ok:    #3FB950;
+    --err:   #F85149;
+    --warn:  #D29922;
+    --info:  #58A6FF;
+
+    /* --- Legacy aliases (will be removed once all selectors migrate) --- */
+    --bg:           var(--bg-page);
+    --bg-1:         var(--bg-surface);
+    --bg-2:         var(--bg-raised);
+    --bg-3:         #1f2125;
+    --border-2:     var(--border-hover);
+    --fg-dim:       var(--fg-muted);
+    --fg-faintest:  var(--fg-disabled);
+    --accent-ink:   var(--accent-fg);
+    --add:          var(--ok);
+    --del:          var(--err);
+    --add-bg:       rgba(63, 185, 80, 0.10);
+    --del-bg:       rgba(248, 81, 73, 0.10);
+    --hover:        rgba(255, 255, 255, 0.025);
+    --selected:     rgba(255, 255, 255, 0.04);
+
+    /* Typography */
+    --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --mono: 'JetBrains Mono', 'Geist Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+    /* Radii — 6px inputs/buttons, 8px surfaces, 0 for list rows */
+    --radius:    6px;
+    --radius-lg: 8px;
 }
 
 /* ---- Streamlit page chrome ---------------------------------------- */
@@ -60,15 +88,15 @@ body, .stApp, .main, .block-container { font-family: var(--sans); font-size: 13p
     font-family: var(--sans);
 }
 
-/* Tight content padding — design is dense */
+/* Tight content padding — Linear/Vercel density target */
 .block-container {
-    padding-top: 1rem !important;
-    padding-bottom: 2rem !important;
-    padding-left: 2rem !important;
-    padding-right: 2rem !important;
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
     max-width: none !important;
 }
-.main .block-container { gap: 0.6rem; }
+.main .block-container { gap: 0.5rem; }
 
 /* Hide Streamlit's top chrome */
 header[data-testid="stHeader"] { height: 0 !important; min-height: 0 !important; background: transparent !important; }
@@ -83,12 +111,12 @@ header[data-testid="stHeader"] { height: 0 !important; min-height: 0 !important;
 /* ---- Sidebar ------------------------------------------------------ */
 
 [data-testid="stSidebar"] {
-    background: var(--bg-1);
+    background: var(--bg-surface);
     border-right: 1px solid var(--border);
-    /* Force-fix at design's 240px width — no collapse */
-    width: 240px !important;
-    min-width: 240px !important;
-    max-width: 240px !important;
+    /* Locked at 220px (Linear's sidebar width) — no collapse. */
+    width: 220px !important;
+    min-width: 220px !important;
+    max-width: 220px !important;
     transform: translateX(0) !important;
     visibility: visible !important;
 }
@@ -360,12 +388,27 @@ header[data-testid="stHeader"] { height: 0 !important; min-height: 0 !important;
     font-size: 11px;
 }
 
-/* ---- Headings ----------------------------------------------------- */
+/* ---- Type ramp ---------------------------------------------------- */
+/* Five sizes only: caps-label 11, metadata 12 mono, body 13, ui 14m, heading 18.
+   Headings collapse onto the same 18px to enforce the constraint. */
 
-.stMarkdown h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; color: var(--fg); margin: 0 0 4px 0; }
-.stMarkdown h2 { font-size: 16px; font-weight: 500; letter-spacing: -0.01em; color: var(--fg); margin: 14px 0 8px 0; }
-.stMarkdown h3 { font-size: 14px; font-weight: 500; color: var(--fg); margin: 12px 0 6px 0; }
-.stMarkdown h4 { font-size: 12.5px; font-weight: 500; color: var(--fg); margin: 10px 0 4px 0; }
+.stMarkdown h1,
+.stMarkdown h2,
+.stMarkdown h3,
+.stMarkdown h4 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--fg);
+    margin: 0 0 4px 0;
+    line-height: 1.2;
+}
+.stMarkdown p,
+.stMarkdown li {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--fg);
+}
 
 /* ---- Scrollbar / selection --------------------------------------- */
 
