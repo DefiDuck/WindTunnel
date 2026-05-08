@@ -1,15 +1,55 @@
 # Changelog
 
-## Unreleased
+## v0.2.0 — 2026-05-07
 
-### Web UI — visual design implementation
+### Highlights
+
+- **Streamlit web UI** (`witness ui`) with the full Witness design (dark, mono-heavy, Linear/Vercel-adjacent).
+- **Rich-powered terminal output** for `witness diff` / `witness fingerprint` / `witness inspect` (auto-enabled when `rich` is installed).
+- **Simple / Advanced mode** toggle in the UI sidebar — beginner-friendly default with one-click sample data.
+- **Cross-page action buttons** and contextual hint banners that guide the user through capture → perturb → diff → fingerprint.
+- **Ollama example** showing the OpenAI adapter works against any local model server.
+
+### Web UI — interaction & UX
+
+- **Drag-and-drop trace upload** + auto-discovery of `*.json` and `traces/*.trace.json` files in cwd.
+- **First-run onboarding card** with three clear paths (Try sample data / Drop a trace / Capture from Python).
+- **One-click sample data** generator (`witness.ui.generate_sample_traces()`) — captures a baseline + truncate-perturbed pair without touching disk.
+- **Live progress + status panels** around replay and fingerprint loops (`st.status` with streamed detail, per-run progress bar).
+- **Toast notifications** (`st.toast`) on every load / remove / perturbation-complete.
+- **Click-to-expand decision rows** on Inspect (toggle to dataframe view in advanced mode).
+- **Search & filter** on decisions, messages, diff timeline.
+- **Decision-type filter chips** above the decision list (one chip per type seen, with counts).
+- **Two-click confirm** on destructive actions (Remove a trace) with auto-cancel after 4 s.
+- **Markdown export** on Diff / Perturb / Fingerprint / Inspect pages.
+- **Fingerprint preset save / load** via JSON file (advanced mode).
+- **Cross-page actions** — Inspect topbar has Diff / Perturb / Fingerprint buttons; Diff bottom has 3 next-action CTAs.
+- **Contextual hint banner** on Load page — guides user to the next logical action based on how many traces are loaded.
+
+### Web UI — Simple / Advanced mode
+
+A real `st.toggle` widget in the sidebar with a dynamic label that flips Simple (white) → Advanced (red). Simple mode (the default) hides:
+- the "Add by path" inline loader on Load,
+- the messages and raw-JSON tabs on Inspect,
+- the table-view toggle and 3 advanced perturbation types on Perturb (only `truncate` available),
+- the preset save/load on Fingerprint.
+
+Each simplified page also shows a one-line caption explaining the relevant concept (decision, perturbation, fingerprint).
+
+### Web UI — visual design
 
 Implemented the design handoff from Claude Design (dark-first, restrained,
 mono-heavy aesthetic — Linear/Vercel/LangSmith adjacent). The UI now matches
 the prototype's color palette, typography, and distinctive layouts:
 
 - **Theme**: `#0a0a0a` background, `#fafafa` foreground, desaturated amber
-  `#e8a951` accent. Dark-first via `.streamlit/config.toml`, with full design
+
+Implemented the design handoff from Claude Design (dark-first, restrained,
+mono-heavy aesthetic — Linear/Vercel/LangSmith adjacent). The UI now matches
+the prototype's color palette, typography, and distinctive layouts:
+
+- **Theme**: `#0a0a0a` background, `#fafafa` foreground, desaturated amber
+  accent. Dark-first via `.streamlit/config.toml`, with full design
   tokens injected via custom CSS in `witness/ui/theme.py`.
 - **Typography**: Inter (400/500/600/700) for body, JetBrains Mono for
   numbers and labels. 13px base size. 10.5px uppercase mono labels with

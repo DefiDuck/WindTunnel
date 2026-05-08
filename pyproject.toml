@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "witness"
-version = "0.1.0"
+version = "0.2.0"
 description = "Capture, perturb, and diff LLM agent decisions. Make agent behavior under stress legible."
 readme = "README.md"
 license = { text = "MIT" }
