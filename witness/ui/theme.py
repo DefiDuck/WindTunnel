@@ -34,14 +34,18 @@ THEME_CSS = """
     --border:        rgba(255, 255, 255, 0.08);
     --border-hover:  rgba(255, 255, 255, 0.12);
 
-    /* Foreground ramp */
-    --fg:          #E6E6E6;
-    --fg-muted:    #9A9A9A;
-    --fg-faint:    #6B6B6B;
+    /* Foreground ramp — bright enough to actually read on #08090A.
+       The brief's #E6E6E6 / #9A9A9A / #6B6B6B were too low-contrast
+       once they hit dense mono labels at 11px. */
+    --fg:          #FAFAFA;
+    --fg-muted:    #B0B0B0;
+    --fg-faint:    #7E7E7E;
     --fg-disabled: #4A4A4A;
 
-    /* Accent — one only, used sparingly */
-    --accent:    #D97757;     /* Anthropic clay */
+    /* Accent — back to the amber from earlier rounds. The Anthropic clay
+       (#D97757) read as red-orange against the dark background and was
+       too close to --err for status pills. */
+    --accent:    #E8A951;     /* desaturated amber */
     --accent-fg: #0A0A0A;
 
     /* Status */
