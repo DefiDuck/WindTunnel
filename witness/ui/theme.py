@@ -1134,7 +1134,12 @@ kbd {
     font-size: 12px;
 }
 
-/* ---- Flow ribbon — Witness's signature visualization (commit 9) ----- */
+/* ---- Flow ribbon — Witness's signature visualization --------------- */
+/* Nodes communicate type via a 2px colored accent bar at the top + the
+   full type label in mono caps. No icons, no glyphs — premium dev tools
+   never put pictographic content inside data primitives. The colored
+   border on the active node, the halo glow, and the pulse animation all
+   run cleanly because the node's interior is unornamented. */
 
 .flow-ribbon-wrap {
     overflow-x: auto;
@@ -1152,22 +1157,58 @@ kbd {
 }
 
 .flow-node-link { cursor: pointer; outline: none; }
+.flow-node-link #node-* { scroll-margin-inline: 80px; }
+
+/* Entrance: each node fades in with a tiny upward translate; staggered
+   left-to-right by 40ms via inline animation-delay set in flow.py. */
+@keyframes flow-node-enter {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
 .flow-node {
-    transition: transform 100ms ease, opacity 100ms ease;
+    animation: flow-node-enter 200ms ease both;
+    transition: transform 180ms ease, opacity 180ms ease;
+    transform-box: fill-box;
+    transform-origin: center;
 }
 .flow-node-link:hover .flow-node {
     transform: translateY(-2px);
 }
-.flow-node-link:hover .flow-node rect:not([opacity]),
-.flow-node-link:hover .flow-node rect[opacity="1"] {
-    /* Subtle hover lighten — Streamlit's CSS doesn't reach SVG attrs nicely
-       so we just bump the rect via an attribute selector. */
-    fill: var(--bg-page);
-}
+/* Active node: subtle lift, plus a 1.6s pulse on the colored ring. The
+   pulse only reads cleanly because the node's interior is empty — see
+   the rule on .flow-node-active .flow-node-body below. */
 .flow-node-active {
     transform: translateY(-2px);
 }
-.flow-node-link #node-* { scroll-margin-inline: 80px; }
+@keyframes flow-pulse {
+    0%, 100% { stroke-opacity: 1;   }
+    50%      { stroke-opacity: 0.45; }
+}
+.flow-node-active .flow-node-body {
+    animation: flow-pulse 1.6s ease-in-out infinite;
+    transition: stroke 180ms ease;
+}
+.flow-node .flow-node-body {
+    transition: stroke 180ms ease, fill 120ms ease;
+}
+
+/* Edge draw-in: each edge has its full length set as stroke-dasharray
+   and an offset matching the length, so it starts invisible. The
+   keyframe animates the offset to 0 and the line "draws on" left-to-right.
+   Per-edge animation-delay is computed in flow.py so each edge fires
+   100ms after its source node lands. */
+@keyframes flow-edge-draw {
+    to { stroke-dashoffset: 0; }
+}
+.flow-edge {
+    animation: flow-edge-draw 240ms ease-out both;
+}
+
+/* Diff overlay corner glyphs — small textual + and ~ at the right edge
+   of an annotated node. Just a fade-in, no motion. */
+.flow-diff-glyph {
+    animation: flow-node-enter 240ms ease both 80ms;
+}
 
 /* Hairline divider below the ribbon */
 .flow-divider {

@@ -5,9 +5,12 @@ unit-test it by inspecting the returned string. The asserts below cover the
 properties the brief calls out as load-bearing:
 
 - node count matches the input length
-- node width grows monotonically with duration_ms
+- node width grows monotonically with duration_ms (above the label-floor)
 - the active (selected) node carries ``flow-node-active``
 - diff annotations (``+``, ``~``, ghost stubs) are emitted on the right slots
+- NO icons inside data primitives — refused per the strip-ornament brief
+- type labels are full and never truncated (``FINAL_OUTPUT``, not ``FINAL_O``)
+- each node has a top accent path in the type color
 """
 from __future__ import annotations
 
@@ -52,23 +55,32 @@ def _count_nodes(svg: str) -> int:
 
 
 def _node_widths(svg: str) -> list[float]:
-    """Pull node rect widths in document order.
+    """Pull node-body rect widths in document order.
 
-    Anchor on the unique node-rect signature ``rx="6" fill="var(--bg-raised)"``
-    so we skip both the halo rect (rx="9") and the cosmetic stroke-width
-    attributes that would otherwise match a naive ``width=`` regex.
+    Anchor on the unique ``class="flow-node-body"`` signature so we skip
+    the halo rect, marker glyphs, and any other rect that might appear.
     """
     return [
         float(m)
         for m in re.findall(
-            r'<rect [^>]*?width="([\d.]+)"[^>]*?rx="6" fill="var\(--bg-raised\)"',
+            r'<rect class="flow-node-body" [^>]*?width="([\d.]+)"',
             svg,
         )
     ]
 
 
+def _accent_fills(svg: str) -> list[str]:
+    """Return the fill color of every accent path in document order."""
+    return re.findall(
+        r'<path class="flow-accent" [^>]*?fill="([^"]+)"',
+        svg,
+    )
+
+
 # ---------------------------------------------------------------------------
-# width_for_duration — the math
+# width_for_duration — the math (unchanged after the strip-ornament refactor;
+# this is the log-scaled duration component, with the label-floor applied
+# separately in _node_width)
 # ---------------------------------------------------------------------------
 
 
@@ -127,25 +139,51 @@ def test_node_count_matches_input() -> None:
 
 
 def test_node_widths_monotonic_in_duration() -> None:
-    """Decisions sorted by duration → rect widths sorted ascending.
+    """Above the label-floor, decisions sorted by duration must produce
+    non-decreasing rect widths.
 
-    This guards the contract that visual width *is* duration. If someone
-    swaps the formula for uniform widths, this test breaks.
+    The label-floor for MODEL_CALL is 10*7.2+24 ≈ 96px, so durations below
+    ~400ms (where log(ms)*16 < 96) all collapse to 96. Pick durations well
+    above that band to assert strict growth.
     """
-    durations = [25, 100, 400, 1_500, 6_000]
+    durations = [500, 2_000, 5_000, 10_000, 50_000]
     decisions = [_decision(DecisionType.MODEL_CALL, duration_ms=d) for d in durations]
     svg = render_flow_ribbon("base", decisions)
     widths = _node_widths(svg)
     assert len(widths) == len(durations)
     assert widths == sorted(widths)
+    # And strictly increasing within this band — the log curve doesn't
+    # plateau at these durations.
+    for prev, nxt in pairwise(widths):
+        assert nxt > prev, f"widths regressed: {widths}"
 
 
-def test_uniform_width_when_all_durations_missing() -> None:
-    """All-None durations → uniform 80px nodes (no misleading variation)."""
+def test_node_widths_floor_to_label_for_short_durations() -> None:
+    """Short durations must not produce nodes too narrow to fit the label.
+
+    A 25ms TOOL_RESULT node would have log_w ≈ 51.5 — which is shorter
+    than the 11-char ``TOOL_RESULT`` label needs (≈103px). The label
+    floor is what guarantees no truncation.
+    """
+    decisions = [_decision(DecisionType.TOOL_RESULT, duration_ms=25)]
+    svg = render_flow_ribbon("base", decisions)
+    widths = _node_widths(svg)
+    assert len(widths) == 1
+    # 11 chars * 7.2 + 24 = 103.2
+    assert widths[0] >= 103.0
+
+
+def test_uniform_min_width_when_all_durations_missing() -> None:
+    """All-None durations → label-derived widths.
+
+    There's no longer a fixed 80px uniform — width is always at least the
+    label width. For 3 MODEL_CALL nodes (10 chars), each is 96px.
+    """
     decisions = [_decision(DecisionType.MODEL_CALL) for _ in range(3)]
     svg = render_flow_ribbon("base", decisions)
     widths = _node_widths(svg)
-    assert widths == [80.0, 80.0, 80.0]
+    expected = 10 * 7.2 + 24  # MODEL_CALL = 10 chars
+    assert widths == [expected, expected, expected]
 
 
 def test_active_node_has_active_class() -> None:
@@ -157,8 +195,8 @@ def test_active_node_has_active_class() -> None:
     svg = render_flow_ribbon("base", decisions, selected=1)
     # exactly one active node
     assert svg.count("flow-node-active") == 1
-    # and it's tied to id="node-1"
-    # the order in render_node is: <a ...id="node-i" ...><g class="flow-node flow-node-active">
+    # and it's tied to id="node-1". The order in render_node is:
+    #   <a ...id="node-i" ...><g class="flow-node flow-node-active">
     pattern = re.compile(
         r'id="node-1"[^>]*>\s*<g class="flow-node flow-node-active"', re.S
     )
@@ -172,22 +210,108 @@ def test_node_anchor_carries_trace_label_and_index() -> None:
     assert 'href="?trace=alpha&tab=sequence&sel=0"' in svg
 
 
-def test_node_uses_type_color_via_icon_use() -> None:
-    decisions = [_decision(DecisionType.TOOL_CALL, duration_ms=200, name="search")]
+# ---------------------------------------------------------------------------
+# Strip-ornament invariants — the ribbon must communicate type via color
+# (top accent bar) and typography (full type label) only.
+# ---------------------------------------------------------------------------
+
+
+def test_no_icon_references_inside_nodes() -> None:
+    """Premium dev tools never put pictographic content inside data
+    primitives. Verify there are no ``<use>`` or ``#icon-…`` references
+    anywhere in the ribbon SVG."""
+    decisions = [
+        _decision(DecisionType.MODEL_CALL, duration_ms=50),
+        _decision(DecisionType.TOOL_CALL, duration_ms=80, name="search"),
+        _decision(DecisionType.TOOL_RESULT, duration_ms=20),
+        _decision(DecisionType.REASONING, duration_ms=10),
+        _decision(DecisionType.FINAL_OUTPUT, duration_ms=5),
+        _decision(DecisionType.CUSTOM, duration_ms=1),
+    ]
     svg = render_flow_ribbon("base", decisions)
+    assert "<use " not in svg
+    assert "xlink:href=\"#icon-" not in svg
+    assert "<symbol " not in svg
+
+
+def test_no_emoji_glyphs_inside_nodes() -> None:
+    """The accidental Material-Symbols-as-text bug from earlier rounds —
+    where ``arrow_right`` leaked through as literal text — must not recur.
+    Generic guard: no common emoji codepoints in the SVG."""
+    decisions = [_decision(DecisionType.TOOL_CALL, duration_ms=50, name="x")]
+    svg = render_flow_ribbon("base", decisions)
+    for emoji in ("📦", "🔧", "✓", "🚩", "⚙", "🧠"):
+        assert emoji not in svg
+
+
+def test_full_type_label_not_truncated() -> None:
+    """``FINAL_OUTPUT`` is the longest label (12 chars). The width must
+    accommodate it in full — ``FINAL_O`` would be a regression of the
+    pre-strip-ornament truncation logic."""
+    decisions = [_decision(DecisionType.FINAL_OUTPUT, duration_ms=5)]
+    svg = render_flow_ribbon("base", decisions)
+    assert ">FINAL_OUTPUT</text>" in svg
+    # The truncated form must NOT appear anywhere.
+    assert ">FINAL_O</text>" not in svg
+    assert ">FINAL_OU</text>" not in svg
+
+
+def test_each_node_has_one_accent_path_in_type_color() -> None:
+    """Every node has exactly one ``flow-accent`` path painted in its
+    type's color. This is the only color signal inside the node."""
+    decisions = [
+        _decision(DecisionType.MODEL_CALL, duration_ms=50),
+        _decision(DecisionType.TOOL_CALL, duration_ms=80),
+        _decision(DecisionType.TOOL_RESULT, duration_ms=20),
+        _decision(DecisionType.FINAL_OUTPUT, duration_ms=5),
+    ]
+    svg = render_flow_ribbon("base", decisions)
+    fills = _accent_fills(svg)
+    expected = [TYPE_COLOR[d.type.value] for d in decisions]
+    assert fills == expected
+    # Sanity: one accent per node, not more, not fewer.
+    assert len(fills) == len(decisions)
+
+
+def test_active_node_border_is_type_color() -> None:
+    """When a node is selected, its border flips from var(--border) to
+    its type color so the ring + halo + accent all read together."""
+    decisions = [_decision(DecisionType.TOOL_CALL, duration_ms=80, name="x")]
+    svg = render_flow_ribbon("base", decisions, selected=0)
     expected = TYPE_COLOR[DecisionType.TOOL_CALL.value]
-    # The icon <use color="..."> picks up the type color
-    assert f'color="{expected}"' in svg
-    # And the icon symbol is referenced
-    assert 'xlink:href="#icon-tool_call"' in svg
+    # Body rect carries stroke=type_color when active.
+    pattern = re.compile(
+        rf'<rect class="flow-node-body" [^>]*?stroke="{re.escape(expected)}"',
+    )
+    assert pattern.search(svg) is not None
+
+
+def test_entrance_animation_delays_are_staggered() -> None:
+    """Verify each node's inline ``animation-delay`` follows the 40ms
+    stagger so the entrance reads left-to-right.
+
+    Edges have their own animation-delay attributes, so we anchor on the
+    ``flow-node`` <g> to pick up node delays specifically.
+    """
+    decisions = [_decision(DecisionType.MODEL_CALL, duration_ms=50) for _ in range(4)]
+    svg = render_flow_ribbon("base", decisions)
+    node_delays = [
+        int(m)
+        for m in re.findall(
+            r'<g class="flow-node[^"]*"[^>]*?style="animation-delay: (\d+)ms"',
+            svg,
+        )
+    ]
+    assert node_delays == [0, 40, 80, 120]
 
 
 def test_diff_kind_added_emits_plus_glyph() -> None:
     decisions = [_decision(DecisionType.MODEL_CALL, duration_ms=50)]
     svg = render_flow_ribbon("base", decisions, diff={0: "added"})
-    # outline color flips to ok and a "+" glyph shows up at the right edge
-    assert 'fill="var(--ok)"' in svg
-    assert ">+</text>" in svg
+    # Glyph is an SVG <text> element, not a glyph icon.
+    assert 'class="flow-diff-glyph">+</text>' in svg
+    # And the border flips to ok.
+    assert 'stroke="var(--ok)"' in svg
 
 
 def test_diff_kind_removed_dims_node() -> None:
@@ -200,8 +324,8 @@ def test_diff_kind_removed_dims_node() -> None:
 def test_diff_kind_changed_emits_tilde_glyph() -> None:
     decisions = [_decision(DecisionType.MODEL_CALL, duration_ms=50)]
     svg = render_flow_ribbon("base", decisions, diff={0: "changed"})
-    assert 'fill="var(--warn)"' in svg
-    assert ">~</text>" in svg
+    assert 'class="flow-diff-glyph">~</text>' in svg
+    assert 'stroke="var(--warn)"' in svg
 
 
 def test_svg_height_uses_documented_constants() -> None:
@@ -237,6 +361,16 @@ def test_diff_ribbons_renders_both_sides() -> None:
     assert "PERTURBED" in svg
 
 
+def test_diff_ribbons_no_icons_either_side() -> None:
+    """The strip-ornament rule applies to the diff overlay too."""
+    a = _decision(DecisionType.TOOL_CALL, duration_ms=80, name="search")
+    b = _decision(DecisionType.TOOL_CALL, duration_ms=80, name="search")
+    pairs = [_pair("same", a, b)]
+    svg = render_diff_ribbons("base", "pert", pairs)
+    assert "<use " not in svg
+    assert "xlink:href=\"#icon-" not in svg
+
+
 def test_diff_ribbons_added_emits_ghost_stub() -> None:
     """An added decision (no baseline counterpart) shows a green dashed stub
     pointing up to a ghost circle in the baseline lane."""
@@ -250,7 +384,7 @@ def test_diff_ribbons_added_emits_ghost_stub() -> None:
     # Dashed connection
     assert 'stroke-dasharray="3 3"' in svg
     # Perturbed node carries the added-glyph treatment
-    assert ">+</text>" in svg
+    assert 'class="flow-diff-glyph">+</text>' in svg
 
 
 def test_diff_ribbons_removed_emits_ghost_stub() -> None:
@@ -272,7 +406,7 @@ def test_diff_ribbons_changed_emits_warn_connection() -> None:
     assert 'stroke="var(--warn)"' in svg
     assert 'stroke-dasharray="4 3"' in svg
     # Both nodes carry the changed glyph
-    assert svg.count(">~</text>") == 2
+    assert svg.count('class="flow-diff-glyph">~</text>') == 2
 
 
 def test_diff_ribbons_same_uses_quiet_connection() -> None:
@@ -283,8 +417,8 @@ def test_diff_ribbons_same_uses_quiet_connection() -> None:
     # 'same' uses border color, not warn
     assert 'stroke="var(--border)"' in svg
     # No diff glyphs
-    assert ">~</text>" not in svg
-    assert ">+</text>" not in svg
+    assert 'class="flow-diff-glyph">~</text>' not in svg
+    assert 'class="flow-diff-glyph">+</text>' not in svg
 
 
 def test_diff_ribbons_mixed_alignment_node_count() -> None:
