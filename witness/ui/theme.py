@@ -942,6 +942,200 @@ kbd {
 .wt-action-danger:hover { color: var(--del); background: var(--del-bg); }
 .wt-action svg { display: block; }
 
+/* ---- Trace detail (commit 4) ----------------------------------- */
+
+.td-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 12px 0 8px 0;
+}
+.td-header-text { display: flex; flex-direction: column; gap: 2px; }
+.td-filename {
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--fg);
+    letter-spacing: -0.005em;
+}
+.td-meta {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--fg-dim);
+}
+.td-hr {
+    border: 0;
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0 8px 0;
+}
+
+.td-tab-row {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 14px;
+}
+.td-tab {
+    height: 32px;
+    padding: 0 14px;
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--fg-dim);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 80ms linear;
+}
+.td-tab:hover { color: var(--fg); }
+.td-tab-active {
+    color: var(--fg);
+    border-bottom-color: var(--accent);
+}
+
+/* Sequence rail + main pane */
+.td-seq-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+.td-seq-item {
+    display: grid;
+    grid-template-columns: 32px 1fr;
+    gap: 8px;
+    align-items: center;
+    height: 28px;
+    padding: 0 10px;
+    border-left: 2px solid transparent;
+    border-bottom: 1px solid var(--border);
+    color: inherit;
+    text-decoration: none;
+    transition: background 80ms linear;
+}
+.td-seq-item:last-child { border-bottom: 0; }
+.td-seq-item:hover { background: var(--bg-2); }
+.td-seq-active {
+    border-left-color: var(--accent);
+    background: var(--bg-2);
+}
+.td-seq-idx {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--fg-faint);
+}
+.td-seq-type {
+    font-family: var(--mono);
+    font-size: 12px;
+}
+
+/* Decision detail fields */
+.td-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+.td-field-row {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 12px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+}
+.td-field-row:last-child { border-bottom: 0; }
+.td-field-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--fg-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.td-field-value {
+    font-size: 13px;
+    color: var(--fg);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Empty inline (Sequence/Messages/Runs/Stability when no content) */
+.td-empty-inline {
+    padding: 32px 8px;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--fg-faint);
+}
+
+/* Messages list */
+.td-msg-row {
+    display: grid;
+    grid-template-columns: 32px 80px 1fr;
+    gap: 12px;
+    align-items: center;
+    height: 32px;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12.5px;
+}
+.td-msg-idx { font-family: var(--mono); color: var(--fg-faint); }
+.td-msg-role { font-family: var(--mono); color: var(--fg-dim); font-size: 11.5px; }
+.td-msg-content {
+    color: var(--fg);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Runs list (perturbed children) */
+.td-run-row {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 80px;
+    gap: 12px;
+    align-items: center;
+    height: 32px;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--border);
+    color: inherit;
+    text-decoration: none;
+    transition: background 80ms linear;
+}
+.td-run-row:hover { background: var(--bg-2); }
+.td-run-label { color: var(--fg); font-size: 12.5px; }
+.td-run-type { color: var(--fg-dim); font-size: 12px; }
+.td-run-decisions { color: var(--fg-faint); font-size: 11.5px; text-align: right; }
+
+/* Stability headline */
+.td-stability-headline {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 18px 0 8px 0;
+}
+.td-stability-value {
+    font-family: var(--mono);
+    font-size: 28px;
+    font-weight: 500;
+    color: var(--fg);
+    letter-spacing: -0.02em;
+}
+.td-stability-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--fg-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
 /* ---- Bordered containers (st.container(border=True)) ----------- */
 /* Used to group each Load-page trace row with its action buttons,  */
 /* and to tile the 3 onboarding sub-cards on the welcome panel.     */

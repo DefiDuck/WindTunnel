@@ -50,6 +50,7 @@ from witness.ui.export import (
 from witness.ui.lineage import render_lineage_svg
 from witness.ui.onboarding import SAMPLE_DOC, generate_sample_traces
 from witness.ui.theme import THEME_CSS
+from witness.ui.views.trace_detail import render_trace_detail
 from witness.ui.views.traces_list import render_traces_list
 
 
@@ -1740,7 +1741,25 @@ def view_traces() -> None:
     loaded: dict[str, Any] = state.get("loaded_traces", {})
     if trace_id is not None and trace_id in loaded:
         state["active_label"] = trace_id
-        page_inspect()
+
+        def _on_diff() -> None:
+            st.session_state["nav_target"] = "Diffs"
+            st.query_params.clear()
+            st.rerun()
+
+        def _on_perturb() -> None:
+            # Until commit 7 wires ⌘K, the Perturb… button hops to the
+            # legacy page_perturb() flow. The trace is pre-selected via
+            # state["active_label"], so the user lands on its perturb form.
+            page_perturb()
+
+        render_trace_detail(
+            trace_id,
+            loaded[trace_id],
+            on_diff=_on_diff,
+            on_perturb=_on_perturb,
+            state=state,
+        )
         return
 
     # ---- List render -----------------------------------------------
