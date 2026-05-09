@@ -91,29 +91,76 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Global keyboard shortcuts. JS runs in a hidden 0-height iframe and
-# attaches a keydown listener to the parent document (the actual app
-# page). When a shortcut fires, we change parent.location.search, which
-# triggers a Streamlit rerun. The existing URL dispatchers
-# (_handle_cmd_url, view_traces) handle the params.
+# Global JS shim: in-app anchor links + keyboard shortcuts.
 #
-# st.markdown strips <script> tags via Bleach. components.html bypasses
-# that by rendering inside a same-origin iframe; window.parent gives us
-# the top-level document.
+# WindTunnel emits a lot of <a href="?trace=...&tab=...&play_action=...">
+# links for navigation (trace rows, tab strip, ribbon nodes, play/pause,
+# scrubber, speed pills, expansion close, etc.). A naive browser would
+# treat each click as a full document navigation — which Streamlit's
+# frontend handles by reconnecting on a brand-new session. Session
+# state, including st.session_state.loaded_traces, is per-session and
+# in-memory, so every navigation drops the user's loaded traces. (The
+# session-id cookie isn't persisted to localStorage by Streamlit's
+# frontend, so reconnecting to the previous session is best-effort and
+# fails on a hard reload.)
+#
+# Fix: intercept clicks on same-origin anchors whose href starts with
+# "?" (i.e. only-search-params links) and route them through
+# history.pushState + a synthetic popstate event. Streamlit's frontend
+# listens for popstate and reactively updates st.query_params without
+# tearing down the session. Same trick covers the keyboard shortcuts —
+# we no longer assign window.location.search.
+#
+# st.markdown strips <script> tags via Bleach; components.html renders
+# inside a same-origin iframe and lets us reach the parent doc.
 _active_for_js = json.dumps(st.session_state.get("active_label") or "")
 components.html(
     f"""
     <script>
     (function() {{
       const ACTIVE = {_active_for_js};
-      const doc = window.parent.document;
-      const navigate = (qs) => {{ window.parent.location.search = qs; }};
+      const win = window.parent;
+      const doc = win.document;
+
+      // pushState + popstate: tells Streamlit's frontend to read new
+      // query params reactively, without a full page navigation.
+      const navigate = (qs) => {{
+        try {{
+          const target = qs && qs.length ? qs : "?";
+          win.history.pushState({{}}, "", target);
+          win.dispatchEvent(new PopStateEvent("popstate"));
+        }} catch (err) {{
+          // Last-resort fallback if pushState is somehow unavailable.
+          win.location.search = qs;
+        }}
+      }};
 
       // Keep the active-trace value fresh across reruns; only bind once.
       doc.__witness_active = ACTIVE;
-      if (doc.__witness_keys_bound) return;
-      doc.__witness_keys_bound = true;
+      if (doc.__witness_nav_bound) return;
+      doc.__witness_nav_bound = true;
 
+      // ---- Anchor-click interceptor -------------------------------------
+      // Capture-phase listener so we beat any per-link handlers. We only
+      // act on plain left-clicks without modifier keys (let Cmd-click /
+      // middle-click / shift-click do their normal browser thing — open
+      // in new tab etc.). We only intercept hrefs that are pure search
+      // strings ("?..." or "#...&" patterns), never absolute URLs.
+      doc.addEventListener("click", (e) => {{
+        if (e.button !== 0) return;
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        if (e.defaultPrevented) return;
+        let el = e.target;
+        while (el && el.tagName !== "A") el = el.parentElement;
+        if (!el) return;
+        const href = el.getAttribute("href") || "";
+        if (!href.startsWith("?")) return;
+        if (el.target && el.target !== "_self") return;
+        e.preventDefault();
+        navigate(href);
+      }}, true);
+
+      // ---- Keyboard shortcuts -------------------------------------------
       const isTyping = (el) => {{
         if (!el) return false;
         const tag = (el.tagName || "").toLowerCase();
