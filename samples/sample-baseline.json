@@ -1,136 +1,298 @@
 {
   "schema_version": "1.0",
-  "run_id": "run_a70f06505b1e",
-  "agent_name": "sample_research_agent",
-  "model": null,
-  "tools_available": [],
+  "run_id": "run_b41c907ed2a8",
+  "agent_name": "datacenter_research_agent",
+  "model": "claude-opus-4-7",
+  "tools_available": [
+    "web_search",
+    "fetch_url",
+    "calculator"
+  ],
   "messages": [],
   "decisions": [
     {
-      "step_id": "s_32daa97599c8",
-      "timestamp": "2026-05-08T09:20:08.697180+00:00",
+      "step_id": "s_a1b2c3d4e5f6",
+      "timestamp": "2026-05-09T14:02:11.412000+00:00",
       "type": "model_call",
       "input": {
-        "model": "mock-claude",
-        "prompt": "Summarize this document"
+        "model": "claude-opus-4-7",
+        "system": "You are a careful research assistant. Cite primary sources. Do not invent numbers. If a figure cannot be verified, say so.",
+        "prompt": "Compare the energy intensity of the top three cloud providers' AI training datacenters. Use Power Usage Effectiveness (PUE) as the headline metric and note any caveats about how each provider reports it."
       },
       "output": {
-        "text": "I'll search the document first."
+        "text": "I'll approach this in three steps. First, I need PUE figures for AWS, Google Cloud, and Azure. PUE is the ratio of total facility energy to IT equipment energy — lower is better, 1.0 is the theoretical floor. Each hyperscaler publishes annual sustainability reports with this metric, but they use slightly different fleet-weighting methodologies, so the numbers aren't directly comparable without checking definitions.\n\nPlan:\n1. web_search each provider's most recent published PUE.\n2. Verify by fetching the primary sustainability report for at least one provider.\n3. Synthesize a comparison with explicit caveats about methodology.",
+        "stop_reason": "end_turn",
+        "usage": {
+          "input_tokens": 218,
+          "output_tokens": 142
+        }
       },
       "parent_step_id": null,
-      "duration_ms": 12,
+      "duration_ms": 2840,
       "metadata": {
-        "sdk": "mock"
+        "sdk": "anthropic"
       }
     },
     {
-      "step_id": "s_7a3a66be446b",
-      "timestamp": "2026-05-08T09:20:08.697202+00:00",
+      "step_id": "s_b2c3d4e5f6a7",
+      "timestamp": "2026-05-09T14:02:14.260000+00:00",
       "type": "tool_call",
       "input": {
-        "name": "search",
+        "name": "web_search",
         "args": {
-          "query": "main argument"
+          "query": "AWS data center PUE 2024 sustainability report fleet average"
         }
       },
       "output": {},
-      "parent_step_id": null,
-      "duration_ms": 1,
+      "parent_step_id": "s_a1b2c3d4e5f6",
+      "duration_ms": 4,
       "metadata": {
-        "sdk": "mock"
+        "sdk": "anthropic"
       }
     },
     {
-      "step_id": "s_2c34c0eb593f",
-      "timestamp": "2026-05-08T09:20:08.697219+00:00",
+      "step_id": "s_c3d4e5f6a7b8",
+      "timestamp": "2026-05-09T14:02:14.910000+00:00",
       "type": "tool_result",
       "input": {
-        "name": "search"
+        "name": "web_search"
       },
       "output": {
-        "hits": []
+        "hits": [
+          {
+            "title": "AWS Sustainability — Carbon, Water, and Energy",
+            "url": "https://sustainability.aws.amazon.com/",
+            "snippet": "AWS reported a global trailing-twelve-month fleet-wide PUE of 1.15 for calendar year 2023, with the most efficient facilities achieving a PUE of 1.04."
+          },
+          {
+            "title": "Uptime Institute — Hyperscaler PUE Benchmark 2024",
+            "url": "https://uptimeinstitute.com/research/hyperscaler-pue-2024",
+            "snippet": "Among the three largest US hyperscalers, reported PUE clustered between 1.10 and 1.20 in 2023, with AWS at 1.15 (fleet TTM)."
+          },
+          {
+            "title": "Data Center Frontier — AWS sustainability disclosure update",
+            "url": "https://datacenterfrontier.com/aws-pue-2024",
+            "snippet": "AWS does not break out training-only vs. inference workloads in its PUE disclosure. The 1.15 figure is the fleet-wide average across all workloads."
+          }
+        ]
       },
-      "parent_step_id": null,
-      "duration_ms": 2,
+      "parent_step_id": "s_b2c3d4e5f6a7",
+      "duration_ms": 612,
       "metadata": {
-        "sdk": "mock"
+        "sdk": "anthropic"
       }
     },
     {
-      "step_id": "s_99de745e556b",
-      "timestamp": "2026-05-08T09:20:08.697229+00:00",
+      "step_id": "s_d4e5f6a7b8c9",
+      "timestamp": "2026-05-09T14:02:15.530000+00:00",
+      "type": "reasoning",
+      "input": {
+        "context": "AWS = 1.15 fleet TTM, no training-only breakout."
+      },
+      "output": {
+        "text": "Good — AWS at 1.15 fleet-wide for 2023 is consistent across two sources. Important caveat: AWS does not break out AI training workloads, so this is mixed inference + storage + training. I'll need to flag that comparability issue. Now Google."
+      },
+      "parent_step_id": "s_c3d4e5f6a7b8",
+      "duration_ms": 1100,
+      "metadata": {
+        "sdk": "anthropic"
+      }
+    },
+    {
+      "step_id": "s_e5f6a7b8c9d0",
+      "timestamp": "2026-05-09T14:02:16.640000+00:00",
       "type": "tool_call",
       "input": {
-        "name": "read_document",
+        "name": "web_search",
         "args": {
-          "start": 0,
-          "len": 472
+          "query": "Google data center PUE 2024 trailing twelve month fleet average"
         }
       },
       "output": {},
-      "parent_step_id": null,
-      "duration_ms": 1,
+      "parent_step_id": "s_d4e5f6a7b8c9",
+      "duration_ms": 3,
       "metadata": {
-        "sdk": "mock"
+        "sdk": "anthropic"
       }
     },
     {
-      "step_id": "s_0074132652d1",
-      "timestamp": "2026-05-08T09:20:08.697238+00:00",
+      "step_id": "s_f6a7b8c9d0e1",
+      "timestamp": "2026-05-09T14:02:17.290000+00:00",
       "type": "tool_result",
       "input": {
-        "name": "read_document"
+        "name": "web_search"
       },
       "output": {
-        "text": "Constitutional AI is a method for training AI assistants to be helpful, harmless, and honest.\n\nThe approach uses a set of principles, called a constitution, to guide the model's behavior.\nRather than relying solely on human feedback, the model critiques and revises its own outputs.\n\nThis technique reduces the burden on human annotators while still producing aligned behavior.\nThe result is a model that explains its reasoning and refuses harmful requests transparently.\n"
+        "hits": [
+          {
+            "title": "Google 2024 Environmental Report — Efficiency",
+            "url": "https://sustainability.google/reports/2024-environmental-report/",
+            "snippet": "Google's fleet-wide trailing-twelve-month PUE was 1.10 in 2023, unchanged from 2022. Individual sites range from 1.06 to 1.17."
+          },
+          {
+            "title": "Google — Efficiency: how we do it",
+            "url": "https://www.google.com/about/datacenters/efficiency/",
+            "snippet": "We measure PUE comprehensively, including all overhead — cooling, power conversion, lighting — and across the entire calendar year, not a best-case window."
+          }
+        ]
       },
-      "parent_step_id": null,
-      "duration_ms": 2,
+      "parent_step_id": "s_e5f6a7b8c9d0",
+      "duration_ms": 705,
       "metadata": {
-        "sdk": "mock"
+        "sdk": "anthropic"
       }
     },
     {
-      "step_id": "s_b515b63b1313",
-      "timestamp": "2026-05-08T09:20:08.697252+00:00",
+      "step_id": "s_a7b8c9d0e1f2",
+      "timestamp": "2026-05-09T14:02:18.000000+00:00",
+      "type": "tool_call",
+      "input": {
+        "name": "web_search",
+        "args": {
+          "query": "Microsoft Azure data center PUE 2024 sustainability"
+        }
+      },
+      "output": {},
+      "parent_step_id": "s_f6a7b8c9d0e1",
+      "duration_ms": 3,
+      "metadata": {
+        "sdk": "anthropic"
+      }
+    },
+    {
+      "step_id": "s_b8c9d0e1f2a3",
+      "timestamp": "2026-05-09T14:02:18.640000+00:00",
+      "type": "tool_result",
+      "input": {
+        "name": "web_search"
+      },
+      "output": {
+        "hits": [
+          {
+            "title": "Microsoft 2024 Environmental Sustainability Report",
+            "url": "https://www.microsoft.com/en-us/corporate-responsibility/sustainability/report",
+            "snippet": "Microsoft reported a global average PUE of 1.18 across operating cloud datacenters for FY2023. New designs target a PUE of 1.12 by FY2025."
+          },
+          {
+            "title": "Azure Sustainability — methodology notes",
+            "url": "https://azure.microsoft.com/en-us/blog/azure-pue-methodology",
+            "snippet": "Azure reports PUE as a calendar-year fleet average, including legacy facilities. AI training campuses (e.g. Mt Pleasant, WI) are reported separately and target a PUE below 1.12."
+          }
+        ]
+      },
+      "parent_step_id": "s_a7b8c9d0e1f2",
+      "duration_ms": 698,
+      "metadata": {
+        "sdk": "anthropic"
+      }
+    },
+    {
+      "step_id": "s_c9d0e1f2a3b4",
+      "timestamp": "2026-05-09T14:02:19.350000+00:00",
       "type": "model_call",
       "input": {
-        "model": "mock-claude",
-        "prompt": "Synthesize"
+        "model": "claude-opus-4-7",
+        "prompt": "Synthesize what we have so far. Note any methodology differences."
       },
       "output": {
-        "text": "Constitutional AI is a method for training AI assistants to be helpful, harmless, and honest. The approach uses a set of principles, called a constitution, to guide the model's behavior. This technique reduces the burden on human annotators while still producing aligned behavior."
+        "text": "Working table:\n- AWS:    PUE 1.15 (fleet TTM, 2023, all workloads mixed)\n- Google: PUE 1.10 (fleet TTM, 2023, calendar-year, comprehensive overhead)\n- Azure:  PUE 1.18 (fleet calendar-year, FY2023, all workloads mixed)\n\nGoogle is the clear leader on the headline number. But methodology matters: Google explicitly includes all overhead and the entire calendar year, while AWS and Microsoft both report fleet averages without published comparable methodology notes for training-specific facilities. I should verify the AWS figure against the primary source before I commit to the comparison.",
+        "stop_reason": "end_turn",
+        "usage": {
+          "input_tokens": 1180,
+          "output_tokens": 138
+        }
       },
-      "parent_step_id": null,
-      "duration_ms": 15,
+      "parent_step_id": "s_b8c9d0e1f2a3",
+      "duration_ms": 2210,
       "metadata": {
-        "sdk": "mock"
+        "sdk": "anthropic"
       }
     },
     {
-      "step_id": "s_1e06e73b039f",
-      "timestamp": "2026-05-08T09:20:08.697260+00:00",
+      "step_id": "s_d0e1f2a3b4c5",
+      "timestamp": "2026-05-09T14:02:21.560000+00:00",
+      "type": "tool_call",
+      "input": {
+        "name": "fetch_url",
+        "args": {
+          "url": "https://sustainability.aws.amazon.com/"
+        }
+      },
+      "output": {},
+      "parent_step_id": "s_c9d0e1f2a3b4",
+      "duration_ms": 5,
+      "metadata": {
+        "sdk": "anthropic"
+      }
+    },
+    {
+      "step_id": "s_e1f2a3b4c5d6",
+      "timestamp": "2026-05-09T14:02:22.910000+00:00",
+      "type": "tool_result",
+      "input": {
+        "name": "fetch_url"
+      },
+      "output": {
+        "url": "https://sustainability.aws.amazon.com/",
+        "status": 200,
+        "content_type": "text/html",
+        "text": "AWS Sustainability\n\nEnergy efficiency\n\nWe operate one of the most energy-efficient cloud infrastructures in the world. Our 2023 trailing-twelve-month fleet-wide Power Usage Effectiveness (PUE) was 1.15, with our most efficient facility achieving a PUE of 1.04. We measure PUE on a continuous basis and report the fleet-weighted average across all AWS Regions.\n\nWater\n\nIn 2023 we returned more water to communities than we used in our direct cloud operations across 24% of our regions, and we are on a path to be water-positive by 2030.\n\nCarbon\n\nAmazon was co-founder of The Climate Pledge, committing to reach net-zero carbon emissions across our businesses by 2040. In 2023, 100% of the electricity consumed by Amazon's operations was matched with renewable energy, seven years ahead of our 2030 commitment.\n\nMethodology\n\nWe calculate PUE in line with the ISO/IEC 30134-2:2016 standard. Our reported figure is the fleet-wide trailing-twelve-month average across all operational AWS Regions and is not broken out by workload (training vs. inference vs. storage)."
+      },
+      "parent_step_id": "s_d0e1f2a3b4c5",
+      "duration_ms": 1320,
+      "metadata": {
+        "sdk": "anthropic"
+      }
+    },
+    {
+      "step_id": "s_f2a3b4c5d6e7",
+      "timestamp": "2026-05-09T14:02:24.230000+00:00",
+      "type": "model_call",
+      "input": {
+        "model": "claude-opus-4-7",
+        "prompt": "Write the final answer. Lead with the comparison, then methodology caveats."
+      },
+      "output": {
+        "text": "Drafting final response. AWS = 1.15 confirmed against primary source (ISO/IEC 30134-2:2016). Google leads at 1.10. Azure trails at 1.18 fleet average, with newer training campuses targeting below 1.12. Caveat block: none of the three publish a training-only PUE in their headline numbers, so the comparison is fleet-weighted across mixed workloads.",
+        "stop_reason": "end_turn",
+        "usage": {
+          "input_tokens": 2104,
+          "output_tokens": 84
+        }
+      },
+      "parent_step_id": "s_e1f2a3b4c5d6",
+      "duration_ms": 1980,
+      "metadata": {
+        "sdk": "anthropic"
+      }
+    },
+    {
+      "step_id": "s_a3b4c5d6e7f8",
+      "timestamp": "2026-05-09T14:02:26.210000+00:00",
       "type": "final_output",
       "input": {},
       "output": {
-        "text": "Constitutional AI is a method for training AI assistants to be helpful, harmless, and honest. The approach uses a set of principles, called a constitution, to guide the model's behavior. This technique reduces the burden on human annotators while still producing aligned behavior."
+        "text": "Headline comparison (2023, fleet trailing-twelve-month PUE):\n\n- Google Cloud: 1.10 — best of the three\n- AWS:          1.15\n- Azure:        1.18 — highest, though new AI training campuses target <1.12\n\nLower is better; 1.0 is the theoretical floor. The three numbers cluster within an 8-point band, which on the order of a 200 MW training campus translates to roughly 16 MW of overhead difference between Google and Azure — meaningful at scale.\n\nMethodology caveats:\n1. None of the three providers publishes a training-only PUE in its headline disclosure. All figures are fleet-wide averages mixing training, inference, and storage workloads.\n2. Google reports calendar-year, comprehensive-overhead PUE (per their methodology page).\n3. AWS reports against ISO/IEC 30134-2:2016, fleet-wide TTM, confirmed against the primary source at sustainability.aws.amazon.com.\n4. Azure reports a calendar-year fleet average and notes that AI training campuses (e.g. Mt Pleasant, WI) are tracked separately with a sub-1.12 target.\n\nBottom line: Google currently leads on the headline metric, but the gap to AWS is small enough that fleet composition (proportion of new vs. legacy sites) probably explains more of it than design differences. For an apples-to-apples comparison of AI training specifically, ask each provider for their training-campus PUE — it's not in the public disclosures."
       },
-      "parent_step_id": null,
+      "parent_step_id": "s_f2a3b4c5d6e7",
       "duration_ms": null,
       "metadata": {
-        "sdk": "mock"
+        "sdk": "anthropic"
       }
     }
   ],
-  "final_output": "Constitutional AI is a method for training AI assistants to be helpful, harmless, and honest. The approach uses a set of principles, called a constitution, to guide the model's behavior. This technique reduces the burden on human annotators while still producing aligned behavior.",
-  "started_at": "2026-05-08T09:20:08.697066+00:00",
-  "ended_at": "2026-05-08T09:20:08.697268+00:00",
-  "wall_time_ms": 0,
-  "entrypoint": "witness.ui.onboarding:_sample_agent",
+  "final_output": "Headline comparison (2023, fleet trailing-twelve-month PUE):\n\n- Google Cloud: 1.10 — best of the three\n- AWS:          1.15\n- Azure:        1.18 — highest, though new AI training campuses target <1.12\n\nLower is better; 1.0 is the theoretical floor. The three numbers cluster within an 8-point band, which on the order of a 200 MW training campus translates to roughly 16 MW of overhead difference between Google and Azure — meaningful at scale.\n\nMethodology caveats:\n1. None of the three providers publishes a training-only PUE in its headline disclosure. All figures are fleet-wide averages mixing training, inference, and storage workloads.\n2. Google reports calendar-year, comprehensive-overhead PUE (per their methodology page).\n3. AWS reports against ISO/IEC 30134-2:2016, fleet-wide TTM, confirmed against the primary source at sustainability.aws.amazon.com.\n4. Azure reports a calendar-year fleet average and notes that AI training campuses (e.g. Mt Pleasant, WI) are tracked separately with a sub-1.12 target.\n\nBottom line: Google currently leads on the headline metric, but the gap to AWS is small enough that fleet composition (proportion of new vs. legacy sites) probably explains more of it than design differences. For an apples-to-apples comparison of AI training specifically, ask each provider for their training-campus PUE — it's not in the public disclosures.",
+  "started_at": "2026-05-09T14:02:11.412000+00:00",
+  "ended_at": "2026-05-09T14:02:26.210000+00:00",
+  "wall_time_ms": 14798,
+  "entrypoint": "examples.datacenter_research:run",
   "parent_run_id": null,
   "perturbation": null,
   "inputs": {
-    "doc": "Constitutional AI is a method for training AI assistants to be helpful, harmless, and honest.\n\nThe approach uses a set of principles, called a constitution, to guide the model's behavior.\nRather than relying solely on human feedback, the model critiques and revises its own outputs.\n\nThis technique reduces the burden on human annotators while still producing aligned behavior.\nThe result is a model that explains its reasoning and refuses harmful requests transparently.\n"
+    "question": "Compare the energy intensity of the top three cloud providers' AI training datacenters."
   },
-  "metadata": {}
+  "metadata": {
+    "scenario": "datacenter_pue_research",
+    "notes": "Reference run; agent verifies AWS figure against primary source before answering."
+  }
 }
